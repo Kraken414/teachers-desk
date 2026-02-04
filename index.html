@@ -9,6 +9,18 @@
     <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
     <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        'custom-purple': '#42047e',
+                        'custom-cyan': '#07f49e',
+                    }
+                }
+            }
+        }
+    </script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.6.0/mammoth.browser.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
@@ -474,7 +486,7 @@ Return ONLY valid JSON in this exact format (no markdown, no code fences):
             const canAnalyze = rubric.trim().length > 0 && assignment.trim().length > 0;
 
             return (
-                <div className="min-h-screen bg-gradient-to-b from-[#42047e] to-[#07f49e]">
+                <div className="min-h-screen" style={{background: 'linear-gradient(to bottom, #42047e, #07f49e)'}}>
                     {/* Hero Section */}
                     <div className="relative overflow-hidden">
                         <div className="absolute inset-0 bg-[#1e3a5f] opacity-[0.02]"></div>
