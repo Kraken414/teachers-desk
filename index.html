@@ -313,6 +313,17 @@ Return ONLY valid JSON in this exact format (no markdown, no code fences):
     "vocabulary_suggestions": [
       {"original_word": "low-level word used", "context": "sentence where it appears", "suggestions": ["better word 1", "better word 2", "better word 3"], "explanation": "why these are better"}
     ]
+  },
+  "ai_detection": {
+    "likelihood_score": 0-100,
+    "confidence_level": "Low/Medium/High",
+    "analysis": "Brief explanation of the assessment",
+    "indicators": [
+      {"pattern": "specific pattern observed", "explanation": "why this suggests AI/human writing", "weight": "strong/moderate/weak"}
+    ],
+    "human_elements": ["aspect 1 that shows authentic human writing", "aspect 2"],
+    "ai_elements": ["aspect 1 that suggests possible AI generation", "aspect 2"],
+    "recommendation": "What this means for the submission"
   }` : ''}
 }`;
 
@@ -508,6 +519,88 @@ Return ONLY valid JSON in this exact format (no markdown, no code fences):
                                 explanation: "Precise nouns make your writing more academic and clear"
                             }
                         ]
+                    };
+
+                    // Add AI detection analysis for essays
+                    // Analyze patterns that might indicate AI or human writing
+                    const sentences = assignment.split(/[.!?]+/).filter(s => s.trim().length > 0);
+                    const avgSentenceLength = sentences.reduce((sum, s) => sum + s.trim().split(/\s+/).length, 0) / sentences.length;
+                    const hasPersonalAnecdotes = /\b(I|my|me|we|our|us)\b/i.test(assignment);
+                    const hasVaryingSentenceLength = sentences.some(s => s.trim().split(/\s+/).length < 10) && sentences.some(s => s.trim().split(/\s+/).length > 25);
+                    const hasContractions = /\b(don't|can't|won't|isn't|aren't|wasn't|weren't|haven't|hasn't|wouldn't|shouldn't|couldn't)\b/i.test(assignment);
+                    const hasComplexVocabulary = /\b(nonetheless|furthermore|consequently|moreover|therefore|subsequently|essentially|fundamentally)\b/i.test(assignment);
+                    const hasPerfectGrammar = !(/\b(alot|irregardless|should of|could of|would of)\b/i.test(assignment));
+                    
+                    // Calculate likelihood score
+                    let aiScore = 50; // Start neutral
+                    
+                    // Human indicators (reduce score)
+                    if (hasPersonalAnecdotes) aiScore -= 15;
+                    if (hasVaryingSentenceLength) aiScore -= 10;
+                    if (hasContractions) aiScore -= 10;
+                    if (!hasPerfectGrammar) aiScore -= 10; // Minor errors suggest human
+                    
+                    // AI indicators (increase score)
+                    if (avgSentenceLength > 20 && avgSentenceLength < 25) aiScore += 10; // AI tends to be consistent
+                    if (hasComplexVocabulary && !hasContractions) aiScore += 10;
+                    if (hasPerfectGrammar && wordCount > 500) aiScore += 10;
+                    if (!hasPersonalAnecdotes && wordCount > 300) aiScore += 5;
+                    
+                    // Clamp between 0-100
+                    aiScore = Math.max(0, Math.min(100, aiScore));
+                    
+                    let confidenceLevel = "Low";
+                    if (aiScore > 70 || aiScore < 30) confidenceLevel = "High";
+                    else if (aiScore > 60 || aiScore < 40) confidenceLevel = "Medium";
+                    
+                    const humanElements = [];
+                    const aiElements = [];
+                    
+                    if (hasPersonalAnecdotes) humanElements.push("Uses first-person perspective and personal experiences");
+                    if (hasVaryingSentenceLength) humanElements.push("Varied sentence structure and length");
+                    if (hasContractions) humanElements.push("Informal language and contractions present");
+                    if (!hasPerfectGrammar) humanElements.push("Natural minor grammatical variations");
+                    
+                    if (avgSentenceLength > 20 && avgSentenceLength < 25) aiElements.push("Very consistent sentence length (average: " + Math.round(avgSentenceLength) + " words)");
+                    if (hasComplexVocabulary && !hasContractions) aiElements.push("Formal academic vocabulary without informal elements");
+                    if (hasPerfectGrammar && wordCount > 500) aiElements.push("Unusually consistent grammar for extended writing");
+                    if (!hasPersonalAnecdotes && wordCount > 300) aiElements.push("Lacks personal voice or anecdotes");
+                    
+                    if (humanElements.length === 0) humanElements.push("Limited personal or informal elements detected");
+                    if (aiElements.length === 0) aiElements.push("Writing patterns appear authentic");
+                    
+                    feedback.ai_detection = {
+                        likelihood_score: aiScore,
+                        confidence_level: confidenceLevel,
+                        analysis: aiScore > 60 
+                            ? "The writing shows some patterns commonly associated with AI-generated text, though this is not definitive." 
+                            : aiScore < 40
+                            ? "The writing displays characteristics typical of authentic human composition."
+                            : "The writing shows a mix of human and AI-like characteristics, making a definitive assessment difficult.",
+                        indicators: [
+                            {
+                                pattern: `Sentence consistency: ${hasVaryingSentenceLength ? 'Varied' : 'Uniform'} structure`,
+                                explanation: hasVaryingSentenceLength ? "Natural variation in sentence length suggests human writing" : "Consistent sentence patterns can indicate AI generation",
+                                weight: hasVaryingSentenceLength ? "moderate" : "moderate"
+                            },
+                            {
+                                pattern: `Personal voice: ${hasPersonalAnecdotes ? 'Present' : 'Absent'}`,
+                                explanation: hasPersonalAnecdotes ? "First-person perspective and personal experiences indicate human authorship" : "Lack of personal elements may suggest AI-generated content",
+                                weight: hasPersonalAnecdotes ? "strong" : "moderate"
+                            },
+                            {
+                                pattern: `Language formality: ${hasContractions ? 'Mixed formal/informal' : 'Consistently formal'}`,
+                                explanation: hasContractions ? "Use of contractions suggests natural human writing" : "Strictly formal language throughout is common in AI text",
+                                weight: hasContractions ? "moderate" : "weak"
+                            }
+                        ],
+                        human_elements: humanElements,
+                        ai_elements: aiElements,
+                        recommendation: aiScore > 70 
+                            ? "This submission shows several indicators commonly associated with AI-generated content. Consider discussing the work with the student to understand their writing process."
+                            : aiScore > 55
+                            ? "While some AI-like patterns are present, the evidence is not conclusive. The writing may be original with formal style preferences."
+                            : "The writing demonstrates authentic human characteristics. Any AI-like patterns are likely coincidental or due to formal writing style."
                     };
                 }
 
@@ -1019,6 +1112,184 @@ This is where you'll add the work you want feedback on. The more complete your s
                                                                 </div>
                                                             ))}
                                                         </div>
+                                                    </div>
+                                                </div>
+                                            )}
+
+                                            {/* AI Detection Section - Only for Essays */}
+                                            {feedback.ai_detection && (
+                                                <div className="border-t border-slate-200 pt-6">
+                                                    <h4 className="text-lg font-semibold text-[#1e3a5f] mb-4 flex items-center gap-2">
+                                                        🤖 AI Content Analysis
+                                                    </h4>
+                                                    
+                                                    {/* Score Display */}
+                                                    <div className="bg-gradient-to-br from-slate-50 to-slate-100 border-2 border-slate-300 rounded-xl p-6 mb-4">
+                                                        <div className="flex flex-col md:flex-row items-center gap-6">
+                                                            {/* Pie Chart */}
+                                                            <div className="flex-shrink-0">
+                                                                <svg width="160" height="160" viewBox="0 0 160 160" className="transform -rotate-90">
+                                                                    {/* Background circle */}
+                                                                    <circle
+                                                                        cx="80"
+                                                                        cy="80"
+                                                                        r="70"
+                                                                        fill="none"
+                                                                        stroke="#e2e8f0"
+                                                                        strokeWidth="20"
+                                                                    />
+                                                                    {/* AI portion (red/yellow/green based on score) */}
+                                                                    <circle
+                                                                        cx="80"
+                                                                        cy="80"
+                                                                        r="70"
+                                                                        fill="none"
+                                                                        stroke={
+                                                                            feedback.ai_detection.likelihood_score > 70 ? '#ef4444' :
+                                                                            feedback.ai_detection.likelihood_score > 50 ? '#eab308' :
+                                                                            '#10b981'
+                                                                        }
+                                                                        strokeWidth="20"
+                                                                        strokeDasharray={`${(feedback.ai_detection.likelihood_score / 100) * 439.8} 439.8`}
+                                                                        className="transition-all duration-1000"
+                                                                    />
+                                                                    {/* Center text */}
+                                                                    <text
+                                                                        x="80"
+                                                                        y="80"
+                                                                        textAnchor="middle"
+                                                                        dominantBaseline="middle"
+                                                                        className="transform rotate-90"
+                                                                        style={{transformOrigin: '80px 80px'}}
+                                                                        fill="#1e293b"
+                                                                        fontSize="28"
+                                                                        fontWeight="bold"
+                                                                    >
+                                                                        {feedback.ai_detection.likelihood_score}%
+                                                                    </text>
+                                                                </svg>
+                                                                <div className="flex justify-between items-center mt-3 px-2">
+                                                                    <div className="flex items-center gap-2">
+                                                                        <div className={`w-3 h-3 rounded-full ${
+                                                                            feedback.ai_detection.likelihood_score > 70 ? 'bg-red-500' :
+                                                                            feedback.ai_detection.likelihood_score > 50 ? 'bg-yellow-500' :
+                                                                            'bg-green-500'
+                                                                        }`}></div>
+                                                                        <span className="text-xs font-medium text-slate-700">AI-Like</span>
+                                                                    </div>
+                                                                    <div className="flex items-center gap-2">
+                                                                        <div className="w-3 h-3 rounded-full bg-slate-300"></div>
+                                                                        <span className="text-xs font-medium text-slate-700">Human</span>
+                                                                    </div>
+                                                                </div>
+                                                            </div>
+
+                                                            {/* Score Info */}
+                                                            <div className="flex-1">
+                                                                <div className="mb-4">
+                                                                    <div className="text-sm font-medium text-slate-600 mb-1">AI Likelihood Score</div>
+                                                                    <div className="text-3xl font-bold text-slate-800">{feedback.ai_detection.likelihood_score}%</div>
+                                                                    <div className={`inline-block mt-2 px-3 py-1 rounded-full font-semibold text-xs ${
+                                                                        feedback.ai_detection.confidence_level === 'High' ? 'bg-red-100 text-red-800' :
+                                                                        feedback.ai_detection.confidence_level === 'Medium' ? 'bg-yellow-100 text-yellow-800' :
+                                                                        'bg-green-100 text-green-800'
+                                                                    }`}>
+                                                                        {feedback.ai_detection.confidence_level} Confidence
+                                                                    </div>
+                                                                </div>
+                                                                
+                                                                {/* Score Bar */}
+                                                                <div className="relative w-full h-3 bg-slate-200 rounded-full overflow-hidden">
+                                                                    <div 
+                                                                        className={`absolute top-0 left-0 h-full transition-all duration-500 ${
+                                                                            feedback.ai_detection.likelihood_score > 70 ? 'bg-red-500' :
+                                                                            feedback.ai_detection.likelihood_score > 50 ? 'bg-yellow-500' :
+                                                                            'bg-green-500'
+                                                                        }`}
+                                                                        style={{width: `${feedback.ai_detection.likelihood_score}%`}}
+                                                                    ></div>
+                                                                </div>
+                                                                <div className="flex justify-between text-xs text-slate-500 mt-2">
+                                                                    <span>0% (Human)</span>
+                                                                    <span>100% (AI)</span>
+                                                                </div>
+                                                                
+                                                                <p className="text-sm text-slate-700 mt-4">{feedback.ai_detection.analysis}</p>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+
+                                                    {/* Analysis Details */}
+                                                    <div className="grid md:grid-cols-2 gap-4 mb-4">
+                                                        {/* Human Elements */}
+                                                        <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+                                                            <h5 className="text-sm font-semibold text-green-900 mb-2 flex items-center gap-2">
+                                                                ✅ Human Writing Indicators
+                                                            </h5>
+                                                            <ul className="space-y-2">
+                                                                {feedback.ai_detection.human_elements.map((element, i) => (
+                                                                    <li key={i} className="text-sm text-green-800 flex items-start gap-2">
+                                                                        <span className="text-green-600 mt-0.5">•</span>
+                                                                        <span>{element}</span>
+                                                                    </li>
+                                                                ))}
+                                                            </ul>
+                                                        </div>
+
+                                                        {/* AI Elements */}
+                                                        <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+                                                            <h5 className="text-sm font-semibold text-red-900 mb-2 flex items-center gap-2">
+                                                                ⚠️ AI-Like Patterns
+                                                            </h5>
+                                                            <ul className="space-y-2">
+                                                                {feedback.ai_detection.ai_elements.map((element, i) => (
+                                                                    <li key={i} className="text-sm text-red-800 flex items-start gap-2">
+                                                                        <span className="text-red-600 mt-0.5">•</span>
+                                                                        <span>{element}</span>
+                                                                    </li>
+                                                                ))}
+                                                            </ul>
+                                                        </div>
+                                                    </div>
+
+                                                    {/* Pattern Indicators */}
+                                                    <div className="space-y-3 mb-4">
+                                                        <h5 className="text-sm font-semibold text-slate-700">Pattern Analysis</h5>
+                                                        {feedback.ai_detection.indicators.map((indicator, i) => (
+                                                            <div key={i} className="bg-slate-50 border border-slate-200 rounded-lg p-3">
+                                                                <div className="flex items-center justify-between mb-1">
+                                                                    <span className="text-sm font-medium text-slate-900">{indicator.pattern}</span>
+                                                                    <span className={`text-xs px-2 py-1 rounded-full ${
+                                                                        indicator.weight === 'strong' ? 'bg-slate-800 text-white' :
+                                                                        indicator.weight === 'moderate' ? 'bg-slate-600 text-white' :
+                                                                        'bg-slate-400 text-white'
+                                                                    }`}>
+                                                                        {indicator.weight}
+                                                                    </span>
+                                                                </div>
+                                                                <p className="text-xs text-slate-600">{indicator.explanation}</p>
+                                                            </div>
+                                                        ))}
+                                                    </div>
+
+                                                    {/* Recommendation */}
+                                                    <div className={`rounded-lg p-4 ${
+                                                        feedback.ai_detection.likelihood_score > 70 ? 'bg-red-50 border border-red-200' :
+                                                        feedback.ai_detection.likelihood_score > 55 ? 'bg-yellow-50 border border-yellow-200' :
+                                                        'bg-blue-50 border border-blue-200'
+                                                    }`}>
+                                                        <h5 className="text-sm font-semibold mb-2 flex items-center gap-2">
+                                                            {feedback.ai_detection.likelihood_score > 70 ? '🚨' : 
+                                                             feedback.ai_detection.likelihood_score > 55 ? '⚡' : 'ℹ️'} Recommendation
+                                                        </h5>
+                                                        <p className="text-sm text-slate-700">{feedback.ai_detection.recommendation}</p>
+                                                    </div>
+
+                                                    {/* Disclaimer */}
+                                                    <div className="mt-4 p-3 bg-slate-100 border border-slate-300 rounded-lg">
+                                                        <p className="text-xs text-slate-600 italic">
+                                                            <strong>Note:</strong> AI detection is not foolproof. This analysis is based on writing patterns and should be considered alongside other assessment methods. False positives and negatives can occur.
+                                                        </p>
                                                     </div>
                                                 </div>
                                             )}
