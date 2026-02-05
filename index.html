@@ -305,7 +305,15 @@ Return ONLY valid JSON in this exact format (no markdown, no code fences):
     {"rubric_criterion": "criterion with status", "guiding_question": "specific problem with examples", "encouragement": "concrete action steps"}
   ],
   "reflection_prompts": ["question 1", "question 2", "question 3", "question 4"],
-  "next_steps": "numbered action plan"
+  "next_steps": "numbered action plan"${documentType === 'essay' ? `,
+  "grammar_and_vocabulary": {
+    "grammar_issues": [
+      {"issue": "specific grammar mistake with example from text", "correction": "how to fix it", "explanation": "why it matters"}
+    ],
+    "vocabulary_suggestions": [
+      {"original_word": "low-level word used", "context": "sentence where it appears", "suggestions": ["better word 1", "better word 2", "better word 3"], "explanation": "why these are better"}
+    ]
+  }` : ''}
 }`;
 
                     // Try to call the API (this will work if API access is configured)
@@ -460,6 +468,47 @@ Return ONLY valid JSON in this exact format (no markdown, no code fences):
                             encouragement: "Create an outline of your current structure. If it doesn't flow logically, reorganize paragraphs for better coherence."
                         }
                     ];
+
+                    // Add grammar and vocabulary analysis for essays
+                    feedback.grammar_and_vocabulary = {
+                        grammar_issues: [
+                            {
+                                issue: "Check for subject-verb agreement throughout your essay",
+                                correction: "Ensure singular subjects have singular verbs and plural subjects have plural verbs",
+                                explanation: "This is fundamental to clear, professional writing"
+                            },
+                            {
+                                issue: "Review your use of commas, especially in complex sentences",
+                                correction: "Use commas to separate independent clauses with conjunctions and after introductory phrases",
+                                explanation: "Proper punctuation improves readability and prevents confusion"
+                            },
+                            {
+                                issue: "Watch for run-on sentences and sentence fragments",
+                                correction: "Each sentence should have a subject and verb and express a complete thought",
+                                explanation: "Clear sentence structure makes your argument easier to follow"
+                            }
+                        ],
+                        vocabulary_suggestions: [
+                            {
+                                original_word: "good",
+                                context: "Common overuse in essays",
+                                suggestions: ["effective", "beneficial", "advantageous", "valuable"],
+                                explanation: "More precise words strengthen your argument and show sophistication"
+                            },
+                            {
+                                original_word: "bad",
+                                context: "Common overuse in essays",
+                                suggestions: ["detrimental", "problematic", "ineffective", "harmful"],
+                                explanation: "Specific negative descriptors convey your criticism more clearly"
+                            },
+                            {
+                                original_word: "things",
+                                context: "Vague reference",
+                                suggestions: ["factors", "elements", "components", "aspects"],
+                                explanation: "Precise nouns make your writing more academic and clear"
+                            }
+                        ]
+                    };
                 }
 
                 // Common reflection prompts
@@ -928,6 +977,51 @@ This is where you'll add the work you want feedback on. The more complete your s
                                                     ))}
                                                 </div>
                                             </div>
+
+                                            {/* Grammar and Vocabulary Section - Only for Essays */}
+                                            {feedback.grammar_and_vocabulary && (
+                                                <div className="border-t border-slate-200 pt-6">
+                                                    <h4 className="text-lg font-semibold text-[#1e3a5f] mb-4 flex items-center gap-2">
+                                                        📝 Writing Mechanics & Style
+                                                    </h4>
+                                                    
+                                                    {/* Grammar Issues */}
+                                                    <div className="mb-6">
+                                                        <h5 className="text-md font-semibold text-slate-700 mb-3">Grammar & Punctuation</h5>
+                                                        <div className="space-y-3">
+                                                            {feedback.grammar_and_vocabulary.grammar_issues.map((item, i) => (
+                                                                <div key={i} className="bg-amber-50 border border-amber-200 rounded-lg p-4">
+                                                                    <p className="text-sm text-amber-900 font-medium mb-1">⚠️ {item.issue}</p>
+                                                                    <p className="text-sm text-amber-800 mb-1"><strong>How to fix:</strong> {item.correction}</p>
+                                                                    <p className="text-xs text-amber-700 italic">{item.explanation}</p>
+                                                                </div>
+                                                            ))}
+                                                        </div>
+                                                    </div>
+
+                                                    {/* Vocabulary Suggestions */}
+                                                    <div>
+                                                        <h5 className="text-md font-semibold text-slate-700 mb-3">Vocabulary Enhancement</h5>
+                                                        <div className="space-y-3">
+                                                            {feedback.grammar_and_vocabulary.vocabulary_suggestions.map((item, i) => (
+                                                                <div key={i} className="bg-purple-50 border border-purple-200 rounded-lg p-4">
+                                                                    <p className="text-sm text-purple-900 mb-2">
+                                                                        <strong>Instead of "{item.original_word}"</strong> ({item.context})
+                                                                    </p>
+                                                                    <div className="flex flex-wrap gap-2 mb-2">
+                                                                        {item.suggestions.map((suggestion, j) => (
+                                                                            <span key={j} className="bg-purple-100 text-purple-800 px-3 py-1 rounded-full text-sm font-medium">
+                                                                                {suggestion}
+                                                                            </span>
+                                                                        ))}
+                                                                    </div>
+                                                                    <p className="text-xs text-purple-700 italic">{item.explanation}</p>
+                                                                </div>
+                                                            ))}
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            )}
 
                                             {/* Next Steps */}
                                             <div className="bg-gradient-to-r from-[#f97316]/10 to-[#ea580c]/10 border border-[#f97316]/20 rounded-lg p-4">
