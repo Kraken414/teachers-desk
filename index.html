@@ -308,10 +308,10 @@ Return ONLY valid JSON in this exact format (no markdown, no code fences):
   "next_steps": "numbered action plan"${documentType === 'essay' ? `,
   "grammar_and_vocabulary": {
     "grammar_issues": [
-      {"issue": "specific grammar mistake with example from text", "correction": "how to fix it", "explanation": "why it matters"}
+      {"issue": "specific grammar mistake with exact quoted example from text", "correction": "how to fix it", "location": "where in the text (e.g., 'Found 3 instances')", "explanation": "why it matters", "impact": "IMPACT_LEVEL - detailed explanation of effect on grade/credibility"}
     ],
     "vocabulary_suggestions": [
-      {"original_word": "low-level word used", "context": "sentence where it appears", "suggestions": ["better word 1", "better word 2", "better word 3"], "explanation": "why these are better"}
+      {"original_word": "weak word found", "occurrences": number_of_times_used, "context": "actual quoted sentence where it appears", "suggestions": ["better word 1", "better word 2", "better word 3"], "explanation": "why these alternatives are better", "impact": "IMPACT_LEVEL - how this affects overall quality"}
     ]
   },
   "ai_detection": {
@@ -481,44 +481,363 @@ Return ONLY valid JSON in this exact format (no markdown, no code fences):
                     ];
 
                     // Add grammar and vocabulary analysis for essays
+                    // Perform detailed text analysis with paragraph tracking
+                    const grammarIssues = [];
+                    const vocabularySuggestions = [];
+                    
+                    // Split text into paragraphs for location tracking
+                    const paragraphs = assignment.split(/\n\n+/).filter(p => p.trim().length > 0);
+                    
+                    // Extract sentences for analysis
+                    const sentencesForAnalysis = assignment.split(/[.!?]+/).filter(s => s.trim().length > 10);
+                    
+                    // Helper function to find paragraph number for a text snippet
+                    const findParagraphLocation = (snippet) => {
+                        for (let i = 0; i < paragraphs.length; i++) {
+                            if (paragraphs[i].includes(snippet)) {
+                                return i + 1;
+                            }
+                        }
+                        return null;
+                    };
+                    
+                    // Check for common grammar issues with specific examples
+                    // 1. Subject-verb agreement issues
+                    const svAgreementPattern = /\b(he|she|it|this|that|everyone|someone|nobody|each|every)\s+(are|were|have|do)\b/gi;
+                    let svMatches = [];
+                    let match;
+                    const svRegex = new RegExp(svAgreementPattern);
+                    let searchText = assignment;
+                    while ((match = svRegex.exec(searchText)) !== null) {
+                        // Get surrounding context (up to 80 chars)
+                        const start = Math.max(0, match.index - 30);
+                        const end = Math.min(searchText.length, match.index + match[0].length + 50);
+                        const context = searchText.substring(start, end).trim();
+                        const paraNum = findParagraphLocation(match[0]);
+                        svMatches.push({ text: match[0], context, paraNum });
+                        if (svMatches.length >= 3) break; // Limit to first 3 examples
+                    }
+                    
+                    if (svMatches.length > 0) {
+                        const firstExample = svMatches[0];
+                        const correctForm = firstExample.text.replace(/\b(are|were|have|do)\b/i, match => {
+                            const corrections = { 'are': 'is', 'were': 'was', 'have': 'has', 'do': 'does' };
+                            return corrections[match.toLowerCase()] || match;
+                        });
+                        
+                        grammarIssues.push({
+                            issue: `Subject-verb agreement error: "${firstExample.text}"`,
+                            correction: `Change to: "${correctForm}"`,
+                            location: `Paragraph ${firstExample.paraNum || '?'}${svMatches.length > 1 ? ` (and ${svMatches.length - 1} more instance${svMatches.length > 2 ? 's' : ''})` : ''}`,
+                            context: `"...${firstExample.context}..."`,
+                            explanation: "Subject-verb agreement is a fundamental grammar rule. Errors here signal carelessness and reduce reader trust in your analysis",
+                            impact: "HIGH - This error immediately marks your work as unpolished and can lower your grade by 5-10%. Readers may question the quality of your research if you can't master basic grammar",
+                            rubric_impact: "Directly affects 'Writing Quality' or 'Mechanics' criteria on most rubrics"
+                        });
+                    }
+                    
+                    // 2. Run-on sentences (very long sentences without proper punctuation)
+                    const longSentences = sentencesForAnalysis.filter(s => {
+                        const words = s.trim().split(/\s+/).length;
+                        const hasCommas = (s.match(/,/g) || []).length;
+                        const hasSemicolons = (s.match(/;/g) || []).length;
+                        return words > 35 && hasCommas < 2 && hasSemicolons === 0;
+                    });
+                    
+                    if (longSentences.length > 0) {
+                        const example = longSentences[0].trim();
+                        const excerpt = example.substring(0, 120) + (example.length > 120 ? '...' : '');
+                        const wordCount = example.split(/\s+/).length;
+                        const paraNum = findParagraphLocation(example.substring(0, 50));
+                        
+                        grammarIssues.push({
+                            issue: `Run-on sentence (${wordCount} words without breaks)`,
+                            correction: `Break into 2-3 sentences. Add periods or semicolons. Example: Split after main clause, then start new sentence with transitional word.`,
+                            location: `Paragraph ${paraNum || '?'}${longSentences.length > 1 ? ` (found ${longSentences.length} overly long sentences total)` : ''}`,
+                            context: `"${excerpt}"`,
+                            explanation: "Sentences over 35 words without punctuation are difficult to follow. Readers lose track of your main point and may have to re-read multiple times",
+                            impact: "MEDIUM-HIGH - Reduces clarity score by 10-15%. Your argument gets lost in convoluted syntax. Break these up to improve comprehension and show control over sentence structure",
+                            rubric_impact: "Affects 'Organization', 'Clarity', and 'Communication' rubric categories"
+                        });
+                    }
+                    
+                    // 3. Missing commas after introductory phrases
+                    const introductoryPhrasePattern = /(However|Therefore|Furthermore|Additionally|Moreover|Consequently|Meanwhile|Nevertheless|Thus|Indeed|In fact|For example|In conclusion)\s+[a-z]/g;
+                    const introMatches = [];
+                    const introRegex = new RegExp(introductoryPhrasePattern);
+                    searchText = assignment;
+                    while ((match = introRegex.exec(searchText)) !== null) {
+                        const start = Math.max(0, match.index - 10);
+                        const end = Math.min(searchText.length, match.index + 60);
+                        const context = searchText.substring(start, end).trim();
+                        const paraNum = findParagraphLocation(match[0]);
+                        introMatches.push({ text: match[0], context, paraNum });
+                        if (introMatches.length >= 3) break;
+                    }
+                    
+                    if (introMatches.length > 0) {
+                        const firstExample = introMatches[0];
+                        const corrected = firstExample.text.replace(/(\w+)\s+/, '$1, ');
+                        
+                        grammarIssues.push({
+                            issue: `Missing comma after transitional word: "${firstExample.text.trim()}"`,
+                            correction: `Add comma: "${corrected}"`,
+                            location: `Paragraph ${firstExample.paraNum || '?'}${introMatches.length > 1 ? ` (${introMatches.length} instances found)` : ''}`,
+                            context: `"${firstExample.context}"`,
+                            explanation: "Commas after introductory transitions are standard in academic writing. Missing them looks informal or rushed",
+                            impact: "LOW-MEDIUM - Each instance is minor, but ${introMatches.length} errors accumulate. Together they reduce your Mechanics score by 3-5%. Easy fix with high return",
+                            rubric_impact: "Affects 'Conventions', 'Mechanics', or 'Grammar' rubric sections"
+                        });
+                    }
+                    
+                    // 4. Passive voice detection with specific examples
+                    const passivePattern = /\b(is|are|was|were|be|been|being)\s+(\w+ed|written|taken|given|made|done|seen|known)\b/gi;
+                    const passiveMatches = [];
+                    const passiveRegex = new RegExp(passivePattern);
+                    searchText = assignment;
+                    while ((match = passiveRegex.exec(searchText)) !== null) {
+                        const start = Math.max(0, match.index - 20);
+                        const end = Math.min(searchText.length, match.index + 60);
+                        const context = searchText.substring(start, end).trim();
+                        const paraNum = findParagraphLocation(match[0]);
+                        passiveMatches.push({ text: match[0], context, paraNum });
+                        if (passiveMatches.length >= 4) break;
+                    }
+                    
+                    if (passiveMatches.length > 3) {
+                        const example = passiveMatches[0];
+                        
+                        grammarIssues.push({
+                            issue: `Excessive passive voice (${passiveMatches.length} instances): "${example.text}"`,
+                            correction: `Make active: Identify WHO does the action and make them the subject. Example: "The study was conducted by researchers" → "Researchers conducted the study"`,
+                            location: `Throughout text, including paragraph ${example.paraNum || '?'}`,
+                            context: `"...${example.context}..."`,
+                            explanation: "Passive voice obscures responsibility and weakens your argument. Active voice is more direct, engaging, and persuasive",
+                            impact: "MEDIUM - Overuse of passive voice can reduce your 'Writing Quality' score by 8-12%. Active voice makes you sound more authoritative and confident in your claims",
+                            rubric_impact: "Impacts 'Style', 'Voice', 'Persuasiveness', and 'Writing Quality' criteria"
+                        });
+                    }
+                    
+                    // 5. Comma splices
+                    const commaSplicePattern = /[a-z]\s*,\s*(however|therefore|moreover|furthermore|thus|nevertheless|consequently)\s*,/gi;
+                    const spliceMatches = [];
+                    const spliceRegex = new RegExp(commaSplicePattern);
+                    searchText = assignment;
+                    while ((match = spliceRegex.exec(searchText)) !== null) {
+                        const start = Math.max(0, match.index - 30);
+                        const end = Math.min(searchText.length, match.index + 70);
+                        const context = searchText.substring(start, end).trim();
+                        const paraNum = findParagraphLocation(match[0]);
+                        spliceMatches.push({ text: match[0], context, paraNum });
+                        if (spliceMatches.length >= 2) break;
+                    }
+                    
+                    if (spliceMatches.length > 0) {
+                        const example = spliceMatches[0];
+                        grammarIssues.push({
+                            issue: `Comma splice detected: "${example.text}"`,
+                            correction: `Use semicolon before the transitional word: "...; however, ..." OR start new sentence: "... . However, ..."`,
+                            location: `Paragraph ${example.paraNum || '?'}${spliceMatches.length > 1 ? ` (${spliceMatches.length} found)` : ''}`,
+                            context: `"...${example.context}..."`,
+                            explanation: "Comma splices join independent clauses incorrectly. This is a serious grammatical error in academic writing",
+                            impact: "HIGH - Comma splices are considered major errors. Can reduce grade by 5-8%. Shows lack of understanding of sentence boundaries",
+                            rubric_impact: "Directly penalized in 'Grammar' and 'Sentence Structure' rubric areas"
+                        });
+                    }
+                    
+                    // If no specific issues found, add general guidance
+                    if (grammarIssues.length === 0) {
+                        grammarIssues.push({
+                            issue: "No major grammatical errors detected in automated scan",
+                            correction: "Continue proofreading carefully. Consider reading aloud to catch subtle errors",
+                            location: "Overall text analysis",
+                            context: "Your grammar appears solid based on pattern detection",
+                            explanation: "While no obvious errors were found, automated tools can miss context-dependent issues",
+                            impact: "POSITIVE - Strong grammar foundation allows readers to focus on your ideas rather than errors. Maintain this quality through careful revision",
+                            rubric_impact: "Maximizes points in 'Mechanics' and 'Grammar' sections"
+                        });
+                    }
+                    
+                    // VOCABULARY ANALYSIS - Find weak words with specific context
+                    
+                    // 1. Check for "good" and variants with exact locations
+                    const goodPattern = /\b(good|great|nice|okay|ok|fine)\b/gi;
+                    const goodMatches = [];
+                    const goodRegex = new RegExp(goodPattern);
+                    searchText = assignment;
+                    while ((match = goodRegex.exec(searchText)) !== null) {
+                        const start = Math.max(0, match.index - 40);
+                        const end = Math.min(searchText.length, match.index + match[0].length + 60);
+                        const context = searchText.substring(start, end).trim();
+                        const paraNum = findParagraphLocation(match[0]);
+                        goodMatches.push({ word: match[0], context, paraNum });
+                        if (goodMatches.length >= 3) break;
+                    }
+                    
+                    if (goodMatches.length > 0) {
+                        const totalCount = (assignment.match(goodPattern) || []).length;
+                        const firstUse = goodMatches[0];
+                        const locations = goodMatches.map(m => `¶${m.paraNum || '?'}`).join(', ');
+                        
+                        vocabularySuggestions.push({
+                            original_word: firstUse.word.toLowerCase(),
+                            occurrences: totalCount,
+                            location: `Paragraphs: ${locations}${totalCount > goodMatches.length ? ` (${totalCount - goodMatches.length} more)` : ''}`,
+                            context: `"...${firstUse.context}..."`,
+                            suggestions: ["effective", "compelling", "robust", "substantial", "beneficial", "advantageous"],
+                            explanation: "Words like 'good' are vague and subjective. Academic writing requires precise, analytical language that shows critical thinking",
+                            impact: `MEDIUM-HIGH - Using '${firstUse.word}' ${totalCount} time${totalCount > 1 ? 's' : ''} weakens your analytical voice. Replacing with specific descriptors can improve your 'Vocabulary' score by 8-12% and make arguments more persuasive`,
+                            rubric_impact: "Affects 'Word Choice', 'Vocabulary', 'Academic Style' rubric criteria",
+                            specific_improvement: `In paragraph ${firstUse.paraNum || '?'}, instead of "${firstUse.context.substring(0, 60)}...", use a precise term that explains WHY it's good`
+                        });
+                    }
+                    
+                    // 2. Check for "bad" and variants
+                    const badPattern = /\b(bad|wrong|terrible|awful|poor)\b/gi;
+                    const badMatches = [];
+                    const badRegex = new RegExp(badPattern);
+                    searchText = assignment;
+                    while ((match = badRegex.exec(searchText)) !== null) {
+                        const start = Math.max(0, match.index - 40);
+                        const end = Math.min(searchText.length, match.index + match[0].length + 60);
+                        const context = searchText.substring(start, end).trim();
+                        const paraNum = findParagraphLocation(match[0]);
+                        badMatches.push({ word: match[0], context, paraNum });
+                        if (badMatches.length >= 3) break;
+                    }
+                    
+                    if (badMatches.length > 0) {
+                        const totalCount = (assignment.match(badPattern) || []).length;
+                        const firstUse = badMatches[0];
+                        const locations = badMatches.map(m => `¶${m.paraNum || '?'}`).join(', ');
+                        
+                        vocabularySuggestions.push({
+                            original_word: firstUse.word.toLowerCase(),
+                            occurrences: totalCount,
+                            location: `Paragraphs: ${locations}${totalCount > badMatches.length ? ` (${totalCount - badMatches.length} more)` : ''}`,
+                            context: `"...${firstUse.context}..."`,
+                            suggestions: ["detrimental", "problematic", "counterproductive", "ineffective", "flawed", "inadequate"],
+                            explanation: "Generic negative words lack analytical precision. Specify exactly what type of negative quality you're identifying",
+                            impact: `MEDIUM - Using '${firstUse.word}' ${totalCount} time${totalCount > 1 ? 's' : ''} sounds informal and imprecise. Upgrading to academic alternatives can boost 'Vocabulary' and 'Critical Analysis' scores by 6-10%`,
+                            rubric_impact: "Impacts 'Word Choice', 'Analytical Depth', 'Academic Tone'",
+                            specific_improvement: `In ¶${firstUse.paraNum || '?'}, replace with a term that specifies the TYPE of problem (ethical? practical? methodological?)`
+                        });
+                    }
+                    
+                    // 3. Check for "things/stuff"
+                    const vaguePattern = /\b(things|stuff)\b/gi;
+                    const vagueMatches = [];
+                    const vagueRegex = new RegExp(vaguePattern);
+                    searchText = assignment;
+                    while ((match = vagueRegex.exec(searchText)) !== null) {
+                        const start = Math.max(0, match.index - 40);
+                        const end = Math.min(searchText.length, match.index + match[0].length + 60);
+                        const context = searchText.substring(start, end).trim();
+                        const paraNum = findParagraphLocation(match[0]);
+                        vagueMatches.push({ word: match[0], context, paraNum });
+                        if (vagueMatches.length >= 3) break;
+                    }
+                    
+                    if (vagueMatches.length > 0) {
+                        const totalCount = (assignment.match(vaguePattern) || []).length;
+                        const firstUse = vagueMatches[0];
+                        const locations = vagueMatches.map(m => `¶${m.paraNum || '?'}`).join(', ');
+                        
+                        vocabularySuggestions.push({
+                            original_word: firstUse.word.toLowerCase(),
+                            occurrences: totalCount,
+                            location: `Paragraphs: ${locations}${totalCount > vagueMatches.length ? ` (${totalCount - vagueMatches.length} more)` : ''}`,
+                            context: `"...${firstUse.context}..."`,
+                            suggestions: ["factors", "elements", "components", "aspects", "variables", "considerations"],
+                            explanation: "'Things' and 'stuff' are placeholder words that signal unclear thinking. Replace with specific nouns that name exactly what you mean",
+                            impact: `HIGH - Using '${firstUse.word}' ${totalCount} time${totalCount > 1 ? 's' : ''} is a major red flag in academic writing. This single issue can lower your grade by 10-15% as it suggests you haven't thought through your topic deeply`,
+                            rubric_impact: "Severely impacts 'Precision', 'Vocabulary', 'Academic Writing' scores",
+                            specific_improvement: `In ¶${firstUse.paraNum || '?'}, identify the EXACT noun: Are they factors? Methods? Outcomes? Challenges? Be specific!`
+                        });
+                    }
+                    
+                    // 4. Check for "very" and intensifier overuse
+                    const intensifierPattern = /\b(very|really|quite|extremely|incredibly)\s+(\w+)/gi;
+                    const intensifierMatches = [];
+                    const intensifierRegex = new RegExp(intensifierPattern);
+                    searchText = assignment;
+                    while ((match = intensifierRegex.exec(searchText)) !== null) {
+                        const start = Math.max(0, match.index - 40);
+                        const end = Math.min(searchText.length, match.index + match[0].length + 60);
+                        const context = searchText.substring(start, end).trim();
+                        const paraNum = findParagraphLocation(match[0]);
+                        intensifierMatches.push({ word: match[0], context, paraNum });
+                        if (intensifierMatches.length >= 3) break;
+                    }
+                    
+                    if (intensifierMatches.length > 2) {
+                        const totalCount = (assignment.match(/\b(very|really|quite)\b/gi) || []).length;
+                        const firstUse = intensifierMatches[0];
+                        const locations = intensifierMatches.slice(0, 3).map(m => `¶${m.paraNum || '?'}`).join(', ');
+                        
+                        vocabularySuggestions.push({
+                            original_word: firstUse.word.split(' ')[0].toLowerCase(),
+                            occurrences: totalCount,
+                            location: `Paragraphs: ${locations}${totalCount > 3 ? ` (+${totalCount - 3} more)` : ''}`,
+                            context: `"...${firstUse.context}..."`,
+                            suggestions: ["(Use stronger base word instead)", "significant", "considerable", "substantial", "remarkable"],
+                            explanation: "Intensifiers like 'very' weaken writing. Instead of 'very good', use 'excellent'. Instead of 'very bad', use 'terrible'. One strong word beats two weak ones",
+                            impact: `MEDIUM - ${totalCount} instances of weak intensifiers reduce impact. Removing them and using stronger adjectives improves 'Conciseness' and 'Word Choice' scores by 5-8%`,
+                            rubric_impact: "Affects 'Precision', 'Conciseness', 'Word Choice'",
+                            specific_improvement: `In ¶${firstUse.paraNum || '?'}, delete 'very/really' and find a single, stronger word that captures the full meaning`
+                        });
+                    }
+                    
+                    // 5. Check for "a lot"
+                    const alotPattern = /\ba lot\b/gi;
+                    const alotMatches = [];
+                    const alotRegex = new RegExp(alotPattern);
+                    searchText = assignment;
+                    while ((match = alotRegex.exec(searchText)) !== null) {
+                        const start = Math.max(0, match.index - 40);
+                        const end = Math.min(searchText.length, match.index + match[0].length + 60);
+                        const context = searchText.substring(start, end).trim();
+                        const paraNum = findParagraphLocation(match[0]);
+                        alotMatches.push({ context, paraNum });
+                        if (alotMatches.length >= 2) break;
+                    }
+                    
+                    if (alotMatches.length > 0) {
+                        const totalCount = (assignment.match(alotPattern) || []).length;
+                        const firstUse = alotMatches[0];
+                        const locations = alotMatches.map(m => `¶${m.paraNum || '?'}`).join(', ');
+                        
+                        vocabularySuggestions.push({
+                            original_word: "a lot",
+                            occurrences: totalCount,
+                            location: `Paragraphs: ${locations}${totalCount > alotMatches.length ? ` (${totalCount - alotMatches.length} more)` : ''}`,
+                            context: `"...${firstUse.context}..."`,
+                            suggestions: ["numerous", "substantial", "significant", "considerable", "extensive", "abundant"],
+                            explanation: "'A lot' is conversational and imprecise. Academic writing needs specific quantification",
+                            impact: `MEDIUM - ${totalCount} instance${totalCount > 1 ? 's' : ''} of 'a lot' marks your work as informal. Replacing with academic terms improves 'Formality' score by 6-9% and shows maturity`,
+                            rubric_impact: "Affects 'Academic Tone', 'Formality', 'Precision'",
+                            specific_improvement: `In ¶${firstUse.paraNum || '?'}, either use a precise number/percentage OR choose an academic quantifier from the suggestions`
+                        });
+                    }
+                    
+                    // If no weak vocabulary found, acknowledge strength
+                    if (vocabularySuggestions.length === 0) {
+                        vocabularySuggestions.push({
+                            original_word: "N/A",
+                            occurrences: 0,
+                            location: "Overall text",
+                            context: "Vocabulary analysis shows appropriate academic register throughout",
+                            suggestions: ["Continue using precise, discipline-specific terminology"],
+                            explanation: "Your word choices demonstrate sophistication and subject mastery. This is exactly what strong academic writing looks like",
+                            impact: "POSITIVE - Strong vocabulary maximizes 'Word Choice' and 'Academic Style' rubric points. You're likely earning 90%+ in these categories. Keep this standard!",
+                            rubric_impact: "Earning high marks in 'Vocabulary', 'Precision', 'Academic Tone'",
+                            specific_improvement: "No changes needed - your vocabulary strength is supporting your argument effectively"
+                        });
+                    }
+                    
                     feedback.grammar_and_vocabulary = {
-                        grammar_issues: [
-                            {
-                                issue: "Check for subject-verb agreement throughout your essay",
-                                correction: "Ensure singular subjects have singular verbs and plural subjects have plural verbs",
-                                explanation: "This is fundamental to clear, professional writing"
-                            },
-                            {
-                                issue: "Review your use of commas, especially in complex sentences",
-                                correction: "Use commas to separate independent clauses with conjunctions and after introductory phrases",
-                                explanation: "Proper punctuation improves readability and prevents confusion"
-                            },
-                            {
-                                issue: "Watch for run-on sentences and sentence fragments",
-                                correction: "Each sentence should have a subject and verb and express a complete thought",
-                                explanation: "Clear sentence structure makes your argument easier to follow"
-                            }
-                        ],
-                        vocabulary_suggestions: [
-                            {
-                                original_word: "good",
-                                context: "Common overuse in essays",
-                                suggestions: ["effective", "beneficial", "advantageous", "valuable"],
-                                explanation: "More precise words strengthen your argument and show sophistication"
-                            },
-                            {
-                                original_word: "bad",
-                                context: "Common overuse in essays",
-                                suggestions: ["detrimental", "problematic", "ineffective", "harmful"],
-                                explanation: "Specific negative descriptors convey your criticism more clearly"
-                            },
-                            {
-                                original_word: "things",
-                                context: "Vague reference",
-                                suggestions: ["factors", "elements", "components", "aspects"],
-                                explanation: "Precise nouns make your writing more academic and clear"
-                            }
-                        ]
+                        grammar_issues: grammarIssues,
+                        vocabulary_suggestions: vocabularySuggestions
                     };
 
                     // Add AI detection analysis for essays
@@ -1075,18 +1394,68 @@ This is where you'll add the work you want feedback on. The more complete your s
                                             {feedback.grammar_and_vocabulary && (
                                                 <div className="border-t border-slate-200 pt-6">
                                                     <h4 className="text-lg font-semibold text-[#1e3a5f] mb-4 flex items-center gap-2">
-                                                        📝 Writing Mechanics & Style
+                                                        📝 Writing Mechanics & Style Analysis
                                                     </h4>
                                                     
                                                     {/* Grammar Issues */}
                                                     <div className="mb-6">
                                                         <h5 className="text-md font-semibold text-slate-700 mb-3">Grammar & Punctuation</h5>
-                                                        <div className="space-y-3">
+                                                        <div className="space-y-4">
                                                             {feedback.grammar_and_vocabulary.grammar_issues.map((item, i) => (
-                                                                <div key={i} className="bg-amber-50 border border-amber-200 rounded-lg p-4">
-                                                                    <p className="text-sm text-amber-900 font-medium mb-1">⚠️ {item.issue}</p>
-                                                                    <p className="text-sm text-amber-800 mb-1"><strong>How to fix:</strong> {item.correction}</p>
-                                                                    <p className="text-xs text-amber-700 italic">{item.explanation}</p>
+                                                                <div key={i} className="bg-gradient-to-r from-amber-50 to-orange-50 border-l-4 border-amber-600 rounded-lg p-4 shadow-sm">
+                                                                    {/* Header with Issue and Impact Badge */}
+                                                                    <div className="flex items-start justify-between gap-3 mb-3">
+                                                                        <p className="text-sm text-amber-900 font-bold flex-1">⚠️ {item.issue}</p>
+                                                                        {item.impact && (
+                                                                            <span className={`px-3 py-1 rounded-full text-xs font-bold whitespace-nowrap shadow-sm ${
+                                                                                item.impact.includes('HIGH') ? 'bg-red-500 text-white' :
+                                                                                item.impact.includes('MEDIUM-HIGH') ? 'bg-orange-500 text-white' :
+                                                                                item.impact.includes('MEDIUM') ? 'bg-orange-400 text-white' :
+                                                                                item.impact.includes('POSITIVE') ? 'bg-green-500 text-white' :
+                                                                                'bg-yellow-400 text-slate-800'
+                                                                            }`}>
+                                                                                {item.impact.split(' - ')[0]}
+                                                                            </span>
+                                                                        )}
+                                                                    </div>
+                                                                    
+                                                                    {/* Location */}
+                                                                    {item.location && (
+                                                                        <div className="mb-3 flex items-start gap-2">
+                                                                            <span className="text-xs font-semibold text-amber-800 bg-amber-200 px-2 py-1 rounded">📍 LOCATION</span>
+                                                                            <span className="text-xs text-amber-800 flex-1">{item.location}</span>
+                                                                        </div>
+                                                                    )}
+                                                                    
+                                                                    {/* Context Quote */}
+                                                                    {item.context && (
+                                                                        <div className="mb-3 bg-white border border-amber-300 rounded p-3">
+                                                                            <p className="text-xs text-amber-700 font-mono italic leading-relaxed">{item.context}</p>
+                                                                        </div>
+                                                                    )}
+                                                                    
+                                                                    {/* How to Fix */}
+                                                                    <div className="mb-3 bg-amber-100 border border-amber-300 rounded-lg p-3">
+                                                                        <p className="text-xs font-semibold text-amber-900 mb-1">✏️ HOW TO FIX</p>
+                                                                        <p className="text-sm text-amber-800">{item.correction}</p>
+                                                                    </div>
+                                                                    
+                                                                    {/* Impact on Grade */}
+                                                                    <div className="border-t border-amber-200 pt-3 space-y-2">
+                                                                        <div>
+                                                                            <p className="text-xs font-semibold text-amber-900 mb-1">📊 IMPACT ON YOUR GRADE</p>
+                                                                            <p className="text-xs text-amber-800 leading-relaxed">
+                                                                                {item.impact ? item.impact.split(' - ').slice(1).join(' - ') : item.explanation}
+                                                                            </p>
+                                                                        </div>
+                                                                        {item.rubric_impact && (
+                                                                            <div className="bg-amber-50 border border-amber-200 rounded p-2">
+                                                                                <p className="text-xs text-amber-700">
+                                                                                    <strong>Rubric Areas Affected:</strong> {item.rubric_impact}
+                                                                                </p>
+                                                                            </div>
+                                                                        )}
+                                                                    </div>
                                                                 </div>
                                                             ))}
                                                         </div>
@@ -1095,20 +1464,92 @@ This is where you'll add the work you want feedback on. The more complete your s
                                                     {/* Vocabulary Suggestions */}
                                                     <div>
                                                         <h5 className="text-md font-semibold text-slate-700 mb-3">Vocabulary Enhancement</h5>
-                                                        <div className="space-y-3">
+                                                        <div className="space-y-4">
                                                             {feedback.grammar_and_vocabulary.vocabulary_suggestions.map((item, i) => (
-                                                                <div key={i} className="bg-purple-50 border border-purple-200 rounded-lg p-4">
-                                                                    <p className="text-sm text-purple-900 mb-2">
-                                                                        <strong>Instead of "{item.original_word}"</strong> ({item.context})
-                                                                    </p>
-                                                                    <div className="flex flex-wrap gap-2 mb-2">
-                                                                        {item.suggestions.map((suggestion, j) => (
-                                                                            <span key={j} className="bg-purple-100 text-purple-800 px-3 py-1 rounded-full text-sm font-medium">
-                                                                                {suggestion}
+                                                                <div key={i} className="bg-gradient-to-r from-purple-50 to-indigo-50 border-l-4 border-purple-600 rounded-lg p-4 shadow-sm">
+                                                                    {/* Header with Word and Impact */}
+                                                                    <div className="flex items-start justify-between gap-3 mb-3">
+                                                                        <div className="flex-1">
+                                                                            <p className="text-sm text-purple-900 font-bold mb-1">
+                                                                                🔍 Word to Replace: "<span className="text-purple-700">{item.original_word}</span>"
+                                                                            </p>
+                                                                            {item.occurrences > 0 && item.location && (
+                                                                                <div className="flex flex-wrap gap-2 mt-2">
+                                                                                    <span className="text-xs bg-purple-200 text-purple-900 px-2 py-1 rounded-full font-medium">
+                                                                                        Used {item.occurrences}× in your essay
+                                                                                    </span>
+                                                                                    <span className="text-xs bg-purple-100 text-purple-800 px-2 py-1 rounded-full">
+                                                                                        📍 {item.location}
+                                                                                    </span>
+                                                                                </div>
+                                                                            )}
+                                                                        </div>
+                                                                        {item.impact && (
+                                                                            <span className={`px-3 py-1 rounded-full text-xs font-bold whitespace-nowrap shadow-sm ${
+                                                                                item.impact.includes('HIGH') ? 'bg-red-500 text-white' :
+                                                                                item.impact.includes('MEDIUM-HIGH') ? 'bg-orange-500 text-white' :
+                                                                                item.impact.includes('MEDIUM') ? 'bg-orange-400 text-white' :
+                                                                                item.impact.includes('POSITIVE') ? 'bg-green-500 text-white' :
+                                                                                'bg-yellow-400 text-slate-800'
+                                                                            }`}>
+                                                                                {item.impact.split(' - ')[0]}
                                                                             </span>
-                                                                        ))}
+                                                                        )}
                                                                     </div>
-                                                                    <p className="text-xs text-purple-700 italic">{item.explanation}</p>
+                                                                    
+                                                                    {/* Context Quote */}
+                                                                    {item.context && item.context !== "Your vocabulary appears appropriately academic" && (
+                                                                        <div className="mb-3 bg-white border border-purple-300 rounded p-3">
+                                                                            <p className="text-xs text-purple-700 font-mono italic leading-relaxed">{item.context}</p>
+                                                                        </div>
+                                                                    )}
+                                                                    
+                                                                    {/* Better Alternatives */}
+                                                                    <div className="mb-3">
+                                                                        <p className="text-xs font-semibold text-purple-900 mb-2">💡 BETTER ALTERNATIVES</p>
+                                                                        <div className="flex flex-wrap gap-2">
+                                                                            {item.suggestions.map((suggestion, j) => (
+                                                                                <span key={j} className="bg-gradient-to-r from-purple-200 to-purple-300 text-purple-900 px-4 py-2 rounded-full text-sm font-semibold hover:from-purple-300 hover:to-purple-400 transition-all cursor-pointer shadow-sm">
+                                                                                    {suggestion}
+                                                                                </span>
+                                                                            ))}
+                                                                        </div>
+                                                                    </div>
+                                                                    
+                                                                    {/* Why This Matters */}
+                                                                    <div className="border-t border-purple-200 pt-3 space-y-2">
+                                                                        <div>
+                                                                            <p className="text-xs font-semibold text-purple-900 mb-1">📚 WHY THIS MATTERS</p>
+                                                                            <p className="text-xs text-purple-800 leading-relaxed">{item.explanation}</p>
+                                                                        </div>
+                                                                        
+                                                                        {/* Impact on Project */}
+                                                                        {item.impact && (
+                                                                            <div className="bg-purple-100 border border-purple-300 rounded-lg p-3">
+                                                                                <p className="text-xs font-semibold text-purple-900 mb-1">📊 IMPACT ON YOUR PROJECT</p>
+                                                                                <p className="text-xs text-purple-800 leading-relaxed">
+                                                                                    {item.impact.split(' - ').slice(1).join(' - ')}
+                                                                                </p>
+                                                                            </div>
+                                                                        )}
+                                                                        
+                                                                        {/* Rubric Impact */}
+                                                                        {item.rubric_impact && (
+                                                                            <div className="bg-purple-50 border border-purple-200 rounded p-2">
+                                                                                <p className="text-xs text-purple-700">
+                                                                                    <strong>Rubric Areas Affected:</strong> {item.rubric_impact}
+                                                                                </p>
+                                                                            </div>
+                                                                        )}
+                                                                        
+                                                                        {/* Specific Improvement Suggestion */}
+                                                                        {item.specific_improvement && (
+                                                                            <div className="bg-indigo-50 border-l-2 border-indigo-400 rounded p-2">
+                                                                                <p className="text-xs font-semibold text-indigo-900 mb-1">🎯 SPECIFIC ACTION</p>
+                                                                                <p className="text-xs text-indigo-800 italic">{item.specific_improvement}</p>
+                                                                            </div>
+                                                                        )}
+                                                                    </div>
                                                                 </div>
                                                             ))}
                                                         </div>
