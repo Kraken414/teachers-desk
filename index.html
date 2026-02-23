@@ -5,732 +5,927 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>The Teachers Desk</title>
     <link rel="icon" type="image/png" href="favicon.png">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Sora:wght@400;600;700;800&family=DM+Sans:wght@400;500;600&display=swap" rel="stylesheet">
     <script crossorigin src="https://unpkg.com/react@18/umd/react.development.js"></script>
     <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
     <script src="https://cdn.tailwindcss.com"></script>
-    <script>
-        tailwind.config = {
-            theme: {
-                extend: {
-                    colors: {
-                        'custom-purple': '#42047e',
-                        'custom-cyan': '#07f49e',
-                    }
-                }
-            }
-        }
-    </script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.6.0/mammoth.browser.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
     <style>
-        body { margin: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Fira Sans', 'Droid Sans', 'Helvetica Neue', sans-serif; -webkit-font-smoothing: antialiased; }
+        * { box-sizing: border-box; }
+        body { margin: 0; font-family: 'DM Sans', sans-serif; -webkit-font-smoothing: antialiased; background: #0f0f1a; }
+        h1, h2, h3, h4, h5 { font-family: 'Sora', sans-serif; }
+
+        .glass { background: rgba(255,255,255,0.06); backdrop-filter: blur(12px); border: 1px solid rgba(255,255,255,0.12); }
+        .glass-white { background: rgba(255,255,255,0.95); border: 1px solid rgba(0,0,0,0.08); }
+
+        /* Animated gradient bg */
+        .bg-animated {
+            background: linear-gradient(135deg, #0f0f1a 0%, #1a0a2e 35%, #0d1f1a 70%, #0f0f1a 100%);
+            min-height: 100vh;
+        }
+
+        /* Glow orbs */
+        .orb { position: fixed; border-radius: 50%; filter: blur(80px); opacity: 0.18; pointer-events: none; z-index: 0; }
+        .orb-purple { width: 500px; height: 500px; background: #7c3aed; top: -100px; left: -100px; }
+        .orb-cyan { width: 400px; height: 400px; background: #07f49e; bottom: -100px; right: -100px; }
+
+        .content { position: relative; z-index: 1; }
+
+        /* Chip badges */
+        .chip { display: inline-flex; align-items: center; gap: 5px; padding: 3px 10px; border-radius: 999px; font-size: 11px; font-weight: 600; letter-spacing: 0.03em; text-transform: uppercase; }
+        .chip-high { background: #fee2e2; color: #991b1b; }
+        .chip-med { background: #fef3c7; color: #92400e; }
+        .chip-low { background: #dbeafe; color: #1e40af; }
+        .chip-good { background: #d1fae5; color: #065f46; }
+        .chip-purple { background: #ede9fe; color: #5b21b6; }
+
+        /* Infographic cards */
+        .info-card { border-radius: 14px; overflow: hidden; box-shadow: 0 2px 20px rgba(0,0,0,0.08); }
+
+        /* Before/After */
+        .before-after { display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; gap: 10px; }
+        .ba-arrow { font-size: 20px; color: #9ca3af; flex-shrink: 0; }
+
+        /* Score ring */
+        .score-ring { position: relative; display: inline-flex; align-items: center; justify-content: center; }
+
+        /* Tab system */
+        .tab-btn { padding: 8px 16px; border-radius: 8px; font-size: 13px; font-weight: 600; cursor: pointer; border: none; transition: all 0.15s; }
+        .tab-btn.active { background: #42047e; color: white; }
+        .tab-btn.inactive { background: transparent; color: #6b7280; }
+        .tab-btn.inactive:hover { background: #f3f4f6; }
+
+        /* Textarea */
+        textarea { font-family: 'DM Sans', sans-serif; }
+        textarea:focus { outline: none; }
+
+        /* Spinner */
+        @keyframes spin { to { transform: rotate(360deg); } }
+        .spin { animation: spin 0.8s linear infinite; }
+
+        /* Pulse */
+        @keyframes pulse-glow { 0%,100% { box-shadow: 0 0 0 0 rgba(7,244,158,0.4); } 50% { box-shadow: 0 0 0 8px rgba(7,244,158,0); } }
+        .pulse-btn:not(:disabled):hover { animation: pulse-glow 1.5s infinite; }
+
+        /* Grade meter */
+        .grade-track { height: 8px; background: #e5e7eb; border-radius: 999px; overflow: hidden; }
+        .grade-fill { height: 100%; border-radius: 999px; transition: width 0.6s ease; }
+
+        /* Section fade */
+        @keyframes fadeUp { from { opacity:0; transform:translateY(12px); } to { opacity:1; transform:translateY(0); } }
+        .fade-up { animation: fadeUp 0.35s ease both; }
+
+        /* Scrollbar */
+        ::-webkit-scrollbar { width: 6px; } ::-webkit-scrollbar-track { background: transparent; } ::-webkit-scrollbar-thumb { background: rgba(0,0,0,0.15); border-radius: 3px; }
     </style>
 </head>
 <body>
-    <div id="root"><div style="display:flex;align-items:center;justify-content:center;height:100vh;font-family:sans-serif;color:#555;font-size:18px">Loading The Teachers Desk...</div></div>
-    <script>
-        pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
-        const { useState } = React;
-        const e = React.createElement;
+<div class="bg-animated">
+  <div class="orb orb-purple"></div>
+  <div class="orb orb-cyan"></div>
+  <div id="root" class="content"><div style="display:flex;align-items:center;justify-content:center;height:100vh;color:#ccc;font-size:18px;font-family:sans-serif">Loading…</div></div>
+</div>
 
-        // SVG Icons
-        const Sparkles = () => e('svg',{xmlns:'http://www.w3.org/2000/svg',width:20,height:20,viewBox:'0 0 24 24',fill:'none',stroke:'currentColor',strokeWidth:2,strokeLinecap:'round',strokeLinejoin:'round'},e('path',{d:'m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z'}),e('path',{d:'M5 3v4'}),e('path',{d:'M19 17v4'}),e('path',{d:'M3 5h4'}),e('path',{d:'M17 19h4'}));
-        const BookOpen = () => e('svg',{xmlns:'http://www.w3.org/2000/svg',width:24,height:24,viewBox:'0 0 24 24',fill:'none',stroke:'currentColor',strokeWidth:2,strokeLinecap:'round',strokeLinejoin:'round'},e('path',{d:'M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z'}),e('path',{d:'M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z'}));
-        const Target = () => e('svg',{xmlns:'http://www.w3.org/2000/svg',width:24,height:24,viewBox:'0 0 24 24',fill:'none',stroke:'currentColor',strokeWidth:2,strokeLinecap:'round',strokeLinejoin:'round'},e('circle',{cx:12,cy:12,r:10}),e('circle',{cx:12,cy:12,r:6}),e('circle',{cx:12,cy:12,r:2}));
-        const Lightbulb = () => e('svg',{xmlns:'http://www.w3.org/2000/svg',width:24,height:24,viewBox:'0 0 24 24',fill:'none',stroke:'currentColor',strokeWidth:2,strokeLinecap:'round',strokeLinejoin:'round'},e('path',{d:'M15 14c.2-1 .7-1.7 1.5-2.5 1-.9 1.5-2.2 1.5-3.5A6 6 0 0 0 6 8c0 1 .2 2.2 1.5 3.5.7.7 1.3 1.5 1.5 2.5'}),e('path',{d:'M9 18h6'}),e('path',{d:'M10 22h4'}));
-        const FileText = () => e('svg',{xmlns:'http://www.w3.org/2000/svg',width:16,height:16,viewBox:'0 0 24 24',fill:'none',stroke:'currentColor',strokeWidth:2,strokeLinecap:'round',strokeLinejoin:'round'},e('path',{d:'M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z'}),e('polyline',{points:'14 2 14 8 20 8'}),e('line',{x1:16,y1:13,x2:8,y2:13}),e('line',{x1:16,y1:17,x2:8,y2:17}),e('line',{x1:10,y1:9,x2:8,y2:9}));
-        const UploadIcon = () => e('svg',{xmlns:'http://www.w3.org/2000/svg',width:16,height:16,viewBox:'0 0 24 24',fill:'none',stroke:'currentColor',strokeWidth:2,strokeLinecap:'round',strokeLinejoin:'round'},e('path',{d:'M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4'}),e('polyline',{points:'17 8 12 3 7 8'}),e('line',{x1:12,y1:3,x2:12,y2:15}));
-        const XIcon = () => e('svg',{xmlns:'http://www.w3.org/2000/svg',width:12,height:12,viewBox:'0 0 24 24',fill:'none',stroke:'currentColor',strokeWidth:2,strokeLinecap:'round',strokeLinejoin:'round'},e('line',{x1:18,y1:6,x2:6,y2:18}),e('line',{x1:6,y1:6,x2:18,y2:18}));
+<script>
+pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+const { useState } = React;
+const e = React.createElement;
 
-        function App() {
-            const [rubric, setRubric] = useState('');
-            const [assignment, setAssignment] = useState('');
-            const [feedback, setFeedback] = useState(null);
-            const [isAnalyzing, setIsAnalyzing] = useState(false);
-            const [rubricFile, setRubricFile] = useState(null);
-            const [assignmentFile, setAssignmentFile] = useState(null);
-            const [assignmentPreview, setAssignmentPreview] = useState(null);
+// ── Icons ────────────────────────────────────────────────────────────────────
+const Icon = (d, extra={}) => e('svg',{xmlns:'http://www.w3.org/2000/svg',width:18,height:18,viewBox:'0 0 24 24',fill:'none',stroke:'currentColor',strokeWidth:2,strokeLinecap:'round',strokeLinejoin:'round',...extra},
+    Array.isArray(d) ? d.map((p,i)=>e('path',{key:i,d:p})) : e('path',{d})
+);
+const Sparkle = () => Icon(['m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z','M5 3v4','M19 17v4','M3 5h4','M17 19h4'].map((d,i)=>e('path',{key:i,d})));
+const UpIcon = () => e('svg',{xmlns:'http://www.w3.org/2000/svg',width:15,height:15,viewBox:'0 0 24 24',fill:'none',stroke:'currentColor',strokeWidth:2,strokeLinecap:'round',strokeLinejoin:'round'},e('path',{d:'M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4'}),e('polyline',{points:'17 8 12 3 7 8'}),e('line',{x1:12,y1:3,x2:12,y2:15}));
+const FileIcon = () => e('svg',{xmlns:'http://www.w3.org/2000/svg',width:14,height:14,viewBox:'0 0 24 24',fill:'none',stroke:'currentColor',strokeWidth:2,strokeLinecap:'round',strokeLinejoin:'round'},e('path',{d:'M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z'}),e('polyline',{points:'14 2 14 8 20 8'}));
+const XIcon = () => e('svg',{xmlns:'http://www.w3.org/2000/svg',width:12,height:12,viewBox:'0 0 24 24',fill:'none',stroke:'currentColor',strokeWidth:2,strokeLinecap:'round',strokeLinejoin:'round'},e('line',{x1:18,y1:6,x2:6,y2:18}),e('line',{x1:6,y1:6,x2:18,y2:18}));
 
-            const handleFileUpload = async (file, type) => {
-                try {
-                    let extractedText = '';
-                    let previewData = null;
-                    const fileName = file.name.toLowerCase();
-                    if (fileName.endsWith('.pdf')) {
-                        const arrayBuffer = await file.arrayBuffer();
-                        const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
-                        for (let i = 1; i <= pdf.numPages; i++) {
-                            const page = await pdf.getPage(i);
-                            const textContent = await page.getTextContent();
-                            extractedText += `Page ${i}:\n${textContent.items.map(item => item.str).join(' ')}\n\n`;
-                        }
-                    } else if (fileName.endsWith('.docx')) {
-                        const result = await mammoth.extractRawText({ arrayBuffer: await file.arrayBuffer() });
-                        extractedText = result.value;
-                    } else if (fileName.endsWith('.xlsx') || fileName.endsWith('.xls')) {
-                        const workbook = XLSX.read(await file.arrayBuffer(), { type: 'array' });
-                        const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
-                        const range = XLSX.utils.decode_range(firstSheet['!ref']);
-                        const previewRows = Math.min(5, range.e.r + 1);
-                        const previewCols = Math.min(5, range.e.c + 1);
-                        previewData = { type: 'spreadsheet', sheets: workbook.SheetNames, rows: previewRows, cols: previewCols, data: [] };
-                        for (let r = 0; r < previewRows; r++) {
-                            const row = [];
-                            for (let c = 0; c < previewCols; c++) {
-                                const cell = firstSheet[XLSX.utils.encode_cell({ r, c })];
-                                row.push(cell ? cell.v : '');
-                            }
-                            previewData.data.push(row);
-                        }
-                        workbook.SheetNames.forEach(name => { extractedText += `Sheet: ${name}\n${XLSX.utils.sheet_to_txt(workbook.Sheets[name])}\n\n`; });
-                    } else if (fileName.endsWith('.pptx') || fileName.endsWith('.ppt')) {
-                        try {
-                            const zip = await JSZip.loadAsync(await file.arrayBuffer());
-                            const slideFiles = Object.keys(zip.files).filter(n => n.match(/ppt\/slides\/slide\d+\.xml/)).sort();
-                            const slides = [];
-                            for (const sf of slideFiles) {
-                                const content = await zip.files[sf].async('text');
-                                const textMatches = content.match(/<a:t>([^<]+)<\/a:t>/g);
-                                if (textMatches) {
-                                    const slideText = textMatches.map(m => m.replace(/<\/?a:t>/g, '')).join(' ');
-                                    extractedText += `Slide ${slides.length + 1}:\n${slideText}\n\n`;
-                                    slides.push({ number: slides.length + 1, text: slideText });
-                                }
-                            }
-                            previewData = { type: 'presentation', slideCount: slides.length, slides: slides.slice(0, 3) };
-                            if (!extractedText.trim()) extractedText = 'PowerPoint uploaded. Text extraction may be limited.';
-                        } catch { extractedText = 'PowerPoint uploaded. Unable to extract text automatically.'; }
-                    } else {
-                        extractedText = await file.text();
-                    }
-                    if (type === 'rubric') { setRubric(extractedText); setRubricFile({ name: file.name }); }
-                    else { setAssignment(extractedText); setAssignmentFile({ name: file.name }); setAssignmentPreview(previewData); }
-                } catch (err) {
-                    alert(`Failed to extract text from ${file.name}. Please try a different format or paste the text directly.`);
+// ── Small Components ──────────────────────────────────────────────────────────
+const Chip = ({label, type='med'}) => e('span',{className:`chip chip-${type}`},label);
+
+const GradeMeter = ({level}) => {
+    const map = {HIGH:{w:'85%',c:'#ef4444',label:'High Impact'}, 'MEDIUM-HIGH':{w:'65%',c:'#f97316',label:'Med-High'}, MEDIUM:{w:'50%',c:'#eab308',label:'Medium'}, LOW:{w:'25%',c:'#3b82f6',label:'Low'}, POSITIVE:{w:'95%',c:'#22c55e',label:'Positive'}};
+    const key = Object.keys(map).find(k=>level&&level.toUpperCase().includes(k)) || 'MEDIUM';
+    const m = map[key];
+    return e('div',{className:'flex items-center gap-2'},
+        e('div',{className:'grade-track flex-1'},e('div',{className:'grade-fill',style:{width:m.w,background:m.c}})),
+        e('span',{style:{fontSize:11,fontWeight:700,color:m.c,whiteSpace:'nowrap'}},m.label)
+    );
+};
+
+// ── Grammar Issue Card (Infographic) ─────────────────────────────────────────
+const GrammarCard = ({item}) => {
+    const level = item.impact ? item.impact.split(' - ')[0].trim() : 'MEDIUM';
+    const chipType = level.includes('HIGH') ? 'high' : level.includes('POSITIVE') ? 'good' : 'med';
+
+    // Extract before/after from context + correction
+    const rawText = item.context ? item.context.replace(/^"|"$/g,'').replace(/^"?\.\.\./,'').replace(/\.\.\."?$/,'').trim() : '';
+    const fixText = item.correction || '';
+
+    return e('div',{className:'info-card bg-white mb-3 fade-up'},
+        // Header strip
+        e('div',{style:{background:'linear-gradient(90deg,#1e3a5f,#2d5a8f)',padding:'10px 14px',display:'flex',alignItems:'center',justifyContent:'space-between'}},
+            e('div',{style:{display:'flex',alignItems:'center',gap:8}},
+                e('span',{style:{fontSize:16}},'⚠️'),
+                e('span',{style:{color:'white',fontWeight:700,fontSize:13,fontFamily:'Sora,sans-serif'}},
+                    item.issue.length > 60 ? item.issue.substring(0,60)+'…' : item.issue
+                )
+            ),
+            e(Chip,{label:level,type:chipType})
+        ),
+        // Body — 3-column layout
+        e('div',{style:{padding:'12px 14px',display:'grid',gridTemplateColumns:'1fr 28px 1fr',gap:10,alignItems:'start'}},
+            // Before
+            e('div',{style:{background:'#fff5f5',border:'1.5px solid #fca5a5',borderRadius:8,padding:'8px 10px'}},
+                e('div',{style:{fontSize:10,fontWeight:700,color:'#b91c1c',marginBottom:4,textTransform:'uppercase',letterSpacing:'0.05em'}},'❌ Found in your work'),
+                e('p',{style:{fontSize:12,color:'#7f1d1d',fontFamily:'monospace',lineHeight:1.5,margin:0}},
+                    rawText || item.issue
+                )
+            ),
+            // Arrow
+            e('div',{style:{textAlign:'center',paddingTop:10,fontSize:18,color:'#9ca3af'}},'→'),
+            // After
+            e('div',{style:{background:'#f0fdf4',border:'1.5px solid #86efac',borderRadius:8,padding:'8px 10px'}},
+                e('div',{style:{fontSize:10,fontWeight:700,color:'#166534',marginBottom:4,textTransform:'uppercase',letterSpacing:'0.05em'}},'✅ Fix it like this'),
+                e('p',{style:{fontSize:12,color:'#14532d',lineHeight:1.5,margin:0}},fixText)
+            )
+        ),
+        // Footer — impact + rubric
+        e('div',{style:{background:'#f8fafc',borderTop:'1px solid #e2e8f0',padding:'8px 14px',display:'flex',alignItems:'center',gap:12}},
+            e('div',{style:{flex:1}}, e(GradeMeter,{level})),
+            item.rubric_impact && e('span',{style:{fontSize:11,color:'#6366f1',fontWeight:600,whiteSpace:'nowrap'}},
+                '📐 '+item.rubric_impact.substring(0,35)+(item.rubric_impact.length>35?'…':'')
+            )
+        )
+    );
+};
+
+// ── Vocab Card ────────────────────────────────────────────────────────────────
+const VocabCard = ({item}) => {
+    const level = item.impact ? item.impact.split(' - ')[0].trim() : 'MEDIUM';
+    const chipType = level.includes('HIGH') ? 'high' : level.includes('POSITIVE') ? 'good' : 'med';
+    const context = item.context ? item.context.replace(/^"?\.\.\./,'').replace(/\.\.\."?$/,'').trim() : '';
+
+    return e('div',{className:'info-card bg-white mb-3 fade-up'},
+        e('div',{style:{background:'linear-gradient(90deg,#4c1d95,#6d28d9)',padding:'10px 14px',display:'flex',alignItems:'center',justifyContent:'space-between'}},
+            e('div',{style:{display:'flex',alignItems:'center',gap:8}},
+                e('span',{style:{fontSize:15}},'🔍'),
+                e('span',{style:{color:'white',fontWeight:700,fontSize:13,fontFamily:'Sora,sans-serif'}},
+                    `Replace "${item.original_word}" `,
+                    e('span',{style:{color:'#c4b5fd',fontWeight:400,fontSize:12}},`(used ${item.occurrences}×)`)
+                )
+            ),
+            e(Chip,{label:level,type:chipType})
+        ),
+        e('div',{style:{padding:'12px 14px',display:'grid',gridTemplateColumns:'1fr 1fr',gap:12}},
+            // Left: context + why
+            e('div',null,
+                context && e('div',{style:{background:'#faf5ff',border:'1px solid #d8b4fe',borderRadius:8,padding:'8px 10px',marginBottom:8}},
+                    e('div',{style:{fontSize:10,fontWeight:700,color:'#7e22ce',marginBottom:3,textTransform:'uppercase',letterSpacing:'0.05em'}},'💬 How you used it'),
+                    e('p',{style:{fontSize:12,fontFamily:'monospace',color:'#581c87',margin:0,lineHeight:1.4}},context)
+                ),
+                e('p',{style:{fontSize:12,color:'#4b5563',margin:0,lineHeight:1.5}},item.explanation)
+            ),
+            // Right: alternatives
+            e('div',null,
+                e('div',{style:{fontSize:10,fontWeight:700,color:'#374151',marginBottom:6,textTransform:'uppercase',letterSpacing:'0.05em'}},'💡 Better alternatives'),
+                e('div',{style:{display:'flex',flexWrap:'wrap',gap:5}},
+                    ...item.suggestions.map((s,j)=>
+                        e('span',{key:j,style:{background:'linear-gradient(135deg,#7c3aed,#4f46e5)',color:'white',padding:'4px 10px',borderRadius:6,fontSize:12,fontWeight:600}},s)
+                    )
+                )
+            )
+        ),
+        e('div',{style:{background:'#f8fafc',borderTop:'1px solid #e2e8f0',padding:'8px 14px'}},
+            e(GradeMeter,{level})
+        )
+    );
+};
+
+// ── Strength / Growth row ─────────────────────────────────────────────────────
+const StrengthRow = ({item,i}) => e('div',{className:'fade-up',style:{display:'flex',alignItems:'flex-start',gap:10,padding:'10px 12px',background:'#f0fdf4',borderRadius:10,border:'1px solid #bbf7d0',marginBottom:8}},
+    e('div',{style:{width:28,height:28,borderRadius:'50%',background:'#22c55e',color:'white',display:'flex',alignItems:'center',justifyContent:'center',fontWeight:700,fontSize:13,flexShrink:0}},i+1),
+    e('div',null,
+        e('div',{style:{fontWeight:700,fontSize:13,color:'#14532d',marginBottom:2}},item.area),
+        e('div',{style:{fontSize:13,color:'#166534'}},item.observation)
+    )
+);
+
+const GrowthRow = ({item,i}) => e('div',{className:'fade-up',style:{borderRadius:10,border:'1px solid #bfdbfe',overflow:'hidden',marginBottom:8}},
+    e('div',{style:{background:'#eff6ff',padding:'8px 12px',display:'flex',alignItems:'center',gap:8}},
+        e('div',{style:{width:22,height:22,borderRadius:'50%',background:'#3b82f6',color:'white',display:'flex',alignItems:'center',justifyContent:'center',fontWeight:700,fontSize:12,flexShrink:0}},i+1),
+        e('div',{style:{fontWeight:700,fontSize:13,color:'#1e40af'}},item.rubric_criterion)
+    ),
+    e('div',{style:{padding:'8px 12px',background:'white',display:'grid',gridTemplateColumns:'1fr 1fr',gap:10}},
+        e('div',null,
+            e('div',{style:{fontSize:10,fontWeight:700,color:'#6b7280',textTransform:'uppercase',letterSpacing:'0.05em',marginBottom:4}},'What to address'),
+            e('p',{style:{fontSize:12,color:'#374151',margin:0,lineHeight:1.5}},item.guiding_question)
+        ),
+        e('div',null,
+            e('div',{style:{fontSize:10,fontWeight:700,color:'#6b7280',textTransform:'uppercase',letterSpacing:'0.05em',marginBottom:4}},'How to fix it'),
+            e('p',{style:{fontSize:12,color:'#374151',margin:0,lineHeight:1.5}},item.encouragement)
+        )
+    )
+);
+
+// ── AI Detection Card ─────────────────────────────────────────────────────────
+const AiIndicatorRow = ({ind}) => {
+    const dot = ind.weight==='strong' ? '#ef4444' : ind.weight==='moderate' ? '#f97316' : '#22c55e';
+    return e('div',{style:{display:'flex',alignItems:'flex-start',gap:8,padding:'8px 0',borderBottom:'1px solid #f1f5f9'}},
+        e('div',{style:{width:8,height:8,borderRadius:'50%',background:dot,marginTop:5,flexShrink:0}}),
+        e('div',{style:{flex:1}},
+            e('div',{style:{fontSize:12,fontWeight:600,color:'#1e293b'}},ind.pattern),
+            e('div',{style:{fontSize:11,color:'#64748b',marginTop:2}},ind.explanation),
+            ind.example && e('div',{style:{marginTop:4,padding:'4px 8px',background:'#f8fafc',borderRadius:6,fontFamily:'monospace',fontSize:11,color:'#475569'}},
+                e('span',{style:{color:'#94a3b8',marginRight:4}},'e.g.'),ind.example
+            )
+        ),
+        e('span',{style:{fontSize:10,fontWeight:700,color:dot,whiteSpace:'nowrap'}},ind.weight.toUpperCase())
+    );
+};
+
+// ── Main App ──────────────────────────────────────────────────────────────────
+function App() {
+    const [rubric, setRubric] = useState('');
+    const [assignment, setAssignment] = useState('');
+    const [feedback, setFeedback] = useState(null);
+    const [isAnalyzing, setIsAnalyzing] = useState(false);
+    const [rubricFile, setRubricFile] = useState(null);
+    const [assignmentFile, setAssignmentFile] = useState(null);
+    const [assignmentPreview, setAssignmentPreview] = useState(null);
+    const [activeTab, setActiveTab] = useState('overview');
+
+    // ── File upload ────────────────────────────────────────────────────────────
+    const handleFileUpload = async (file, type) => {
+        try {
+            let text = ''; let preview = null;
+            const fn = file.name.toLowerCase();
+            if (fn.endsWith('.pdf')) {
+                const pdf = await pdfjsLib.getDocument({ data: await file.arrayBuffer() }).promise;
+                for (let i = 1; i <= pdf.numPages; i++) {
+                    const pg = await pdf.getPage(i);
+                    const tc = await pg.getTextContent();
+                    text += `Page ${i}:\n${tc.items.map(x=>x.str).join(' ')}\n\n`;
                 }
-            };
-
-            const removeFile = (type) => {
-                if (type === 'rubric') { setRubricFile(null); setRubric(''); }
-                else { setAssignmentFile(null); setAssignment(''); setAssignmentPreview(null); }
-            };
-
-            const handleAnalyze = async () => {
-                if (!rubric.trim() || !assignment.trim()) return;
-                setIsAnalyzing(true); setFeedback(null);
+            } else if (fn.endsWith('.docx')) {
+                text = (await mammoth.extractRawText({ arrayBuffer: await file.arrayBuffer() })).value;
+            } else if (fn.endsWith('.xlsx')||fn.endsWith('.xls')) {
+                const wb = XLSX.read(await file.arrayBuffer(),{type:'array'});
+                const ws = wb.Sheets[wb.SheetNames[0]];
+                const rng = XLSX.utils.decode_range(ws['!ref']);
+                const pr = Math.min(5,rng.e.r+1), pc = Math.min(5,rng.e.c+1);
+                preview = {type:'spreadsheet',sheets:wb.SheetNames,rows:pr,cols:pc,data:[]};
+                for (let r=0;r<pr;r++){const row=[];for(let c=0;c<pc;c++){const cell=ws[XLSX.utils.encode_cell({r,c})];row.push(cell?cell.v:'');}preview.data.push(row);}
+                wb.SheetNames.forEach(n=>{text+=`Sheet: ${n}\n${XLSX.utils.sheet_to_txt(wb.Sheets[n])}\n\n`;});
+            } else if (fn.endsWith('.pptx')||fn.endsWith('.ppt')) {
                 try {
-                    let documentType = 'essay', documentTypeDescription = 'written document/essay';
-                    if (assignmentFile) {
-                        const fn = assignmentFile.name.toLowerCase();
-                        if (fn.endsWith('.pptx') || fn.endsWith('.ppt')) { documentType = 'presentation'; documentTypeDescription = 'presentation/slideshow'; }
-                        else if (fn.endsWith('.xlsx') || fn.endsWith('.xls')) { documentType = 'spreadsheet'; documentTypeDescription = 'spreadsheet/data analysis'; }
+                    const zip = await JSZip.loadAsync(await file.arrayBuffer());
+                    const sfs = Object.keys(zip.files).filter(n=>n.match(/ppt\/slides\/slide\d+\.xml/)).sort();
+                    const slides=[];
+                    for (const sf of sfs){
+                        const c=await zip.files[sf].async('text');
+                        const ms=c.match(/<a:t>([^<]+)<\/a:t>/g);
+                        if(ms){const st=ms.map(m=>m.replace(/<\/?a:t>/g,'')).join(' ');text+=`Slide ${slides.length+1}:\n${st}\n\n`;slides.push({number:slides.length+1,text:st});}
                     }
-                    const essayExtras = documentType === 'essay' ? `,
+                    preview={type:'presentation',slideCount:slides.length,slides:slides.slice(0,3)};
+                    if(!text.trim())text='PowerPoint uploaded. Text may be limited.';
+                } catch{text='PowerPoint uploaded. Unable to extract text.';}
+            } else { text = await file.text(); }
+
+            if (type==='rubric'){setRubric(text);setRubricFile({name:file.name});}
+            else{setAssignment(text);setAssignmentFile({name:file.name});setAssignmentPreview(preview);}
+        } catch(err){ alert(`Could not read ${file.name}. Try pasting the text directly.`); }
+    };
+
+    const removeFile = (type) => {
+        if(type==='rubric'){setRubricFile(null);setRubric('');}
+        else{setAssignmentFile(null);setAssignment('');setAssignmentPreview(null);}
+    };
+
+    // ── Analyze ────────────────────────────────────────────────────────────────
+    const handleAnalyze = async () => {
+        if (!rubric.trim()||!assignment.trim()) return;
+        setIsAnalyzing(true); setFeedback(null); setActiveTab('overview');
+        try {
+            let docType='essay', docDesc='written document/essay';
+            if(assignmentFile){const fn=assignmentFile.name.toLowerCase();if(fn.endsWith('.pptx')||fn.endsWith('.ppt')){docType='presentation';docDesc='presentation/slideshow';}else if(fn.endsWith('.xlsx')||fn.endsWith('.xls')){docType='spreadsheet';docDesc='spreadsheet/data analysis';}}
+
+            const essayExtras = docType==='essay' ? `,
   "grammar_and_vocabulary": {
-    "grammar_issues": [{"issue":"...","correction":"...","location":"...","explanation":"...","impact":"IMPACT_LEVEL - explanation","rubric_impact":"...","context":"..."}],
-    "vocabulary_suggestions": [{"original_word":"...","occurrences":1,"context":"...","location":"...","suggestions":["word1","word2","word3"],"explanation":"...","impact":"IMPACT_LEVEL - explanation","rubric_impact":"...","specific_improvement":"..."}]
+    "grammar_issues": [{"issue":"exact quoted error from text","correction":"step-by-step fix","location":"Paragraph X","context":"the exact sentence or phrase containing the error","explanation":"why this hurts","impact":"HIGH/MEDIUM/LOW","rubric_impact":"rubric area"}],
+    "vocabulary_suggestions": [{"original_word":"word","occurrences":1,"context":"exact sentence where the word appears","location":"¶X","suggestions":["alt1","alt2","alt3"],"explanation":"why","impact":"HIGH/MEDIUM/LOW","rubric_impact":"area","specific_improvement":"concrete rewrite of their sentence"}]
   },
-  "ai_detection": {"likelihood_score":0,"confidence_level":"Low","analysis":"...","indicators":[{"pattern":"...","explanation":"...","weight":"moderate"}],"human_elements":["..."],"ai_elements":["..."],"recommendation":"..."}` : '';
+  "ai_detection": {"likelihood_score":0,"confidence_level":"Low","analysis":"...","indicators":[{"pattern":"pattern name","explanation":"why it matters","weight":"strong/moderate/weak","example":"actual quoted text from the submission"}],"human_elements":["..."],"ai_elements":["..."],"recommendation":"..."}` : '';
 
-                    const prompt = `You are an experienced educator providing constructive feedback on student work. Analyze this ${documentTypeDescription} against the provided rubric.\n\nRUBRIC:\n${rubric}\n\nSTUDENT'S WORK:\n${assignment}\n\nProvide HONEST, SPECIFIC, ACTIONABLE feedback.\n\nReturn ONLY valid JSON (no markdown):\n{\n  "overall_impression":"...",\n  "strengths":[{"area":"...","observation":"..."}],\n  "growth_areas":[{"rubric_criterion":"...","guiding_question":"...","encouragement":"..."}],\n  "reflection_prompts":["...","...","...","..."],\n  "next_steps":"..."${essayExtras}\n}`;
+            const prompt = `You are an experienced educator. Analyze this ${docDesc} against the rubric.\n\nRUBRIC:\n${rubric}\n\nSTUDENT WORK:\n${assignment}\n\nBe honest, specific, and actionable. For grammar issues and vocabulary, ALWAYS quote the actual text from the student's work so they can find and fix it.\n\nReturn ONLY valid JSON:\n{\n  "overall_impression":"2-3 sentence summary",\n  "score_estimate": {"overall":0,"breakdown":[{"criterion":"name","score":0,"max":0}]},\n  "strengths":[{"area":"...","observation":"..."}],\n  "growth_areas":[{"rubric_criterion":"...","guiding_question":"...","encouragement":"..."}],\n  "reflection_prompts":["...","...","..."],\n  "next_steps":["action 1","action 2","action 3","action 4"]${essayExtras}\n}`;
 
-                    try {
-                        const response = await fetch("https://api.anthropic.com/v1/messages", {
-                            method: "POST",
-                            headers: { "Content-Type": "application/json", "anthropic-version": "2023-06-01" },
-                            body: JSON.stringify({ model: "claude-sonnet-4-5", max_tokens: 4000, messages: [{ role: "user", content: prompt }] })
-                        });
-                        if (response.ok) {
-                            const data = await response.json();
-                            const text = data.content.filter(b => b.type === 'text').map(b => b.text).join('');
-                            setFeedback(JSON.parse(text.replace(/```json\n?/g,'').replace(/```\n?/g,'').trim()));
-                            setIsAnalyzing(false); return;
-                        }
-                    } catch(apiErr) { console.log('API unavailable, using local analysis'); }
+            try {
+                const res = await fetch("https://api.anthropic.com/v1/messages",{method:"POST",headers:{"Content-Type":"application/json","anthropic-version":"2023-06-01"},body:JSON.stringify({model:"claude-sonnet-4-5",max_tokens:4000,messages:[{role:"user",content:prompt}]})});
+                if(res.ok){const d=await res.json();const t=d.content.filter(b=>b.type==='text').map(b=>b.text).join('');setFeedback(JSON.parse(t.replace(/```json\n?/g,'').replace(/```\n?/g,'').trim()));setIsAnalyzing(false);return;}
+            } catch(e){console.log('API unavailable, using local analysis');}
 
-                    setFeedback(await generateLocalFeedback(rubric, assignment, documentType));
-                } catch(err) {
-                    alert('Failed to analyze. Please check your rubric and assignment are filled in and try again.');
-                } finally { setIsAnalyzing(false); }
-            };
+            setFeedback(await generateLocalFeedback(rubric,assignment,docType));
+        } catch(err){ alert('Analysis failed. Please fill in both fields and try again.'); }
+        finally { setIsAnalyzing(false); }
+    };
 
-            const generateLocalFeedback = async (rubric, assignment, documentType) => {
-                const wordCount = assignment.trim().split(/\s+/).length;
-                const paragraphCount = assignment.split(/\n\n+/).filter(p => p.trim()).length;
-                const hasEvidence = /\(.*\d{4}.*\)|according to|research shows|study|data|statistics/i.test(assignment);
-                const fb = { overall_impression:'', strengths:[], growth_areas:[], reflection_prompts:[], next_steps:'' };
+    // ── Local feedback engine ──────────────────────────────────────────────────
+    const generateLocalFeedback = async (rubric, assignment, docType) => {
+        const wordCount = assignment.trim().split(/\s+/).length;
+        const paragraphCount = assignment.split(/\n\n+/).filter(p=>p.trim()).length;
+        const hasEvidence = /\(.*\d{4}.*\)|according to|research shows|study|data|statistics/i.test(assignment);
+        const fb = {overall_impression:'',score_estimate:{overall:0,breakdown:[]},strengths:[],growth_areas:[],reflection_prompts:[],next_steps:[]};
 
-                if (documentType === 'presentation') {
-                    const slideCount = (assignment.match(/Slide \d+:/g)||[]).length;
-                    fb.overall_impression = `I've analyzed your ${slideCount}-slide presentation. While you've covered basic structure, several areas need strengthening.`;
-                    fb.strengths = [{ area:'Content Organization', observation:`You've organized content across ${slideCount} slides.` }];
-                    fb.growth_areas = [
-                        { rubric_criterion:'Visual Design & Content Balance', guiding_question:'Slides appear text-heavy. Each slide should have 3-5 key points maximum.', encouragement:'Create visual hierarchy: larger fonts for headers, add relevant images or charts, move detail to speaker notes.' },
-                        { rubric_criterion:'Evidence & Research', guiding_question: hasEvidence ? 'Ensure each major claim has a source citation.' : 'Presentation lacks concrete evidence. Where are statistics, expert quotes, or case studies?', encouragement:'Add 3-5 credible sources with proper citations.' }
-                    ];
-                } else if (documentType === 'spreadsheet') {
-                    const hasFormulas = /SUM|AVERAGE|COUNT|IF|VLOOKUP/i.test(assignment);
-                    fb.overall_impression = `I've reviewed your spreadsheet. There are critical gaps in calculations, visualization, and formatting.`;
-                    fb.strengths = [{ area:'Data Entry', observation:'You\'ve started entering data into your spreadsheet.' }];
-                    fb.growth_areas = [
-                        { rubric_criterion:'Formulas & Calculations', guiding_question: hasFormulas ? 'Verify all calculations use formulas, not manual entry.' : 'No formulas detected. Use Excel functions (SUM, AVERAGE, IF) for all calculations.', encouragement:'Replace every manual calculation with a formula.' },
-                        { rubric_criterion:'Data Visualization', guiding_question:'Where are charts and graphs? Raw numbers alone don\'t show trends.', encouragement:'Create bar/line/pie charts for key data. Add a summary sheet explaining findings.' }
-                    ];
-                } else {
-                    fb.overall_impression = `I've reviewed your ${wordCount}-word submission (${paragraphCount} paragraphs). There are significant gaps in meeting rubric criteria.`;
-                    fb.strengths = [{ area:'Basic Structure', observation: paragraphCount >= 3 ? `You've organized your work into ${paragraphCount} paragraphs.` : 'You\'ve attempted to structure your work.' }];
-                    fb.growth_areas = [
-                        { rubric_criterion:'Evidence & Support (Major Gap)', guiding_question: hasEvidence ? 'Each major claim still needs direct support.' : 'Work lacks concrete evidence. Which credible sources could you cite?', encouragement:'Add at least 3-5 pieces of specific evidence. Cite them properly.' },
-                        { rubric_criterion:'Depth of Analysis', guiding_question:'Are you analyzing or just summarizing? Do you explain WHY information matters?', encouragement:'After each piece of evidence, add 2-3 sentences explaining its significance.' },
-                        { rubric_criterion:'Organization & Flow', guiding_question: wordCount < 300 ? 'Work is quite brief. Does it address all rubric criteria?' : 'Review transitions between ideas.', encouragement:'Create an outline. If it doesn\'t flow logically, reorganize for better coherence.' }
-                    ];
+        if (docType==='presentation') {
+            const sc=(assignment.match(/Slide \d+:/g)||[]).length;
+            fb.overall_impression=`Your ${sc}-slide presentation covers the basics but needs stronger visual structure and evidence.`;
+            fb.score_estimate={overall:62,breakdown:[{criterion:'Content',score:14,max:20},{criterion:'Design',score:11,max:20},{criterion:'Evidence',score:12,max:20},{criterion:'Delivery',score:13,max:20},{criterion:'Citations',score:12,max:20}]};
+            fb.strengths=[{area:'Content Structure',observation:`You organized content across ${sc} slides, showing planning.`}];
+            fb.growth_areas=[{rubric_criterion:'Visual Design',guiding_question:'Slides are text-heavy — aim for 3-5 bullets max per slide.',encouragement:'Move extra text to speaker notes; add one visual (chart or image) per slide.'},{rubric_criterion:'Evidence',guiding_question:hasEvidence?'Citations present but not on every data slide.':'No statistics or expert sources found.',encouragement:'Add a source citation directly on each slide that makes a factual claim.'}];
+            fb.next_steps=['Cut each slide to 5 bullets or fewer','Add one supporting visual per slide','Put citations on every data slide','Write a strong hook on slide 1'];
+        } else if (docType==='spreadsheet') {
+            const hasFormulas=/SUM|AVERAGE|COUNT|IF|VLOOKUP/i.test(assignment);
+            fb.overall_impression=`Your spreadsheet has data entered, but ${hasFormulas?'needs more':'is missing'} formula-driven calculations and charts.`;
+            fb.score_estimate={overall:58,breakdown:[{criterion:'Accuracy',score:12,max:20},{criterion:'Formulas',score:8,max:20},{criterion:'Charts',score:10,max:20},{criterion:'Formatting',score:14,max:20},{criterion:'Analysis',score:14,max:20}]};
+            fb.strengths=[{area:'Data Entry',observation:'Data is entered and sheets are organized.'}];
+            fb.growth_areas=[{rubric_criterion:'Formulas',guiding_question:hasFormulas?'Some formulas present — verify all totals use =SUM().':'No formulas found; all calculations must use functions, not manual math.',encouragement:'Replace every typed number that could be computed with a formula.'},{rubric_criterion:'Visualization',guiding_question:'Charts are missing — raw numbers don\'t tell a story.',encouragement:'Add a bar chart for comparisons and a line chart for trends.'}];
+            fb.next_steps=['Replace manual totals with =SUM() formulas','Add a bar/line chart for key data','Create a Summary sheet','Apply header formatting (bold, color)'];
+        } else {
+            fb.overall_impression=`Your ${wordCount}-word submission (${paragraphCount} paragraphs) addresses the topic but needs stronger evidence and deeper analysis to fully meet rubric criteria.`;
+            fb.score_estimate={overall:61,breakdown:[{criterion:'Thesis',score:13,max:20},{criterion:'Evidence',score:11,max:20},{criterion:'Analysis',score:12,max:20},{criterion:'Organization',score:13,max:20},{criterion:'Mechanics',score:12,max:20}]};
+            fb.strengths=[{area:'Structure',observation:paragraphCount>=3?`Clear ${paragraphCount}-paragraph structure with intro and conclusion.`:'Topic is addressed with an attempt at organization.'},{area:'Engagement',observation:'Writing stays on topic throughout.'}];
+            fb.growth_areas=[
+                {rubric_criterion:'Evidence & Support',guiding_question:hasEvidence?'Evidence is present but some claims lack direct citations.':'Claims are made without supporting sources.',encouragement:'Add at least one cited source per body paragraph.'},
+                {rubric_criterion:'Depth of Analysis',guiding_question:'Are you explaining WHY evidence matters, or just stating it?',encouragement:'After each quote or fact, write 2-3 sentences explaining its significance.'},
+                {rubric_criterion:'Sentence Variety',guiding_question:wordCount<300?'Submission is brief — most criteria need more development.':'Check for run-on sentences and repetitive structure.',encouragement:'Mix short, punchy sentences with longer, complex ones.'}
+            ];
+            fb.next_steps=['Add one citation per body paragraph','After every piece of evidence, write a 2-sentence analysis','Read aloud to catch awkward phrasing','Check thesis: does every paragraph support it?'];
 
-                    // Grammar analysis
-                    const grammarIssues = [];
-                    const vocabSuggestions = [];
-                    const paragraphs = assignment.split(/\n\n+/).filter(p => p.trim());
-                    const sentences = assignment.split(/[.!?]+/).filter(s => s.trim().length > 10);
-                    const findPara = (snippet) => { for (let i = 0; i < paragraphs.length; i++) if (paragraphs[i].includes(snippet)) return i+1; return null; };
-                    let m, txt;
+            // ── Grammar analysis ──────────────────────────────────────────────
+            const grammarIssues=[];
+            const vocabSuggestions=[];
+            const paragraphs=assignment.split(/\n\n+/).filter(p=>p.trim());
+            const sentences=assignment.split(/[.!?]+/).filter(s=>s.trim().length>10);
+            const findPara=(snippet)=>{for(let i=0;i<paragraphs.length;i++)if(paragraphs[i].includes(snippet))return i+1;return null;};
+            let m, txt;
 
-                    // Subject-verb agreement
-                    const svR = /\b(he|she|it|this|that|everyone|someone|nobody|each|every)\s+(are|were|have|do)\b/gi;
-                    const svM = []; txt = assignment;
-                    while ((m = svR.exec(txt)) !== null) { svM.push({ text:m[0], ctx:txt.substring(Math.max(0,m.index-30),Math.min(txt.length,m.index+m[0].length+50)).trim(), para:findPara(m[0]) }); if (svM.length >= 3) break; }
-                    if (svM.length > 0) { const fe=svM[0]; const fix=fe.text.replace(/\b(are|were|have|do)\b/i,w=>({'are':'is','were':'was','have':'has','do':'does'}[w.toLowerCase()]||w)); grammarIssues.push({ issue:`Subject-verb agreement: "${fe.text}"`, correction:`Change to: "${fix}"`, location:`Paragraph ${fe.para||'?'}`, context:`"...${fe.ctx}..."`, explanation:'Subject-verb agreement is fundamental.', impact:'HIGH - Can lower grade by 5-10%.', rubric_impact:"'Writing Quality' or 'Mechanics'" }); }
+            // Subject-verb agreement
+            const svR=/\b(he|she|it|this|that|everyone|someone|nobody|each|every)\s+(are|were|have|do)\b/gi;
+            const svM=[]; txt=assignment;
+            while((m=svR.exec(txt))!==null){
+                const start=Math.max(0,m.index-40),end=Math.min(txt.length,m.index+m[0].length+60);
+                const fullSentence=txt.substring(start,end).trim();
+                svM.push({text:m[0],ctx:fullSentence,para:findPara(m[0])});
+                if(svM.length>=3)break;
+            }
+            if(svM.length>0){
+                const fe=svM[0];
+                const fix=fe.text.replace(/\b(are|were|have|do)\b/i,w=>({'are':'is','were':'was','have':'has','do':'does'}[w.toLowerCase()]||w));
+                const correctedCtx=fe.ctx.replace(fe.text,fix);
+                grammarIssues.push({
+                    issue:`Subject-verb agreement: "${fe.text}"`,
+                    correction:`Change "${fe.text}" → "${fix}"\n\nYour sentence: "${fe.ctx}"\nFixed: "${correctedCtx}"`,
+                    location:`Paragraph ${fe.para||'?'}`,
+                    context:`"${fe.ctx}"`,
+                    explanation:'Singular subjects (he, she, it, everyone) need singular verbs (is, was, has, does).',
+                    impact:'HIGH - Grammatical errors immediately undermine credibility.',
+                    rubric_impact:"'Writing Quality', 'Mechanics'"
+                });
+            }
 
-                    // Run-on sentences
-                    const longS = sentences.filter(s => { const wc=s.trim().split(/\s+/).length; return wc > 35 && (s.match(/,/g)||[]).length < 2 && !(s.match(/;/g)||[]).length; });
-                    if (longS.length > 0) { const ex=longS[0].trim(); grammarIssues.push({ issue:`Run-on sentence (${ex.split(/\s+/).length} words)`, correction:'Break into 2-3 sentences.', location:`Paragraph ${findPara(ex.substring(0,50))||'?'}`, context:`"${ex.substring(0,120)}${ex.length>120?'...':''}"`, explanation:'Long sentences lose reader focus.', impact:'MEDIUM-HIGH - Reduces clarity by 10-15%.', rubric_impact:"'Organization', 'Clarity'" }); }
+            // Run-on sentences
+            const longS=sentences.filter(s=>{const wc=s.trim().split(/\s+/).length;return wc>35&&(s.match(/,/g)||[]).length<2&&!(s.match(/;/g)||[]).length;});
+            if(longS.length>0){
+                const ex=longS[0].trim();
+                const midpoint=Math.floor(ex.split(/\s+/).length/2);
+                const words=ex.split(/\s+/);
+                const suggested=words.slice(0,midpoint).join(' ')+'. '+words[midpoint].charAt(0).toUpperCase()+words.slice(midpoint).join(' ').substring(1);
+                grammarIssues.push({
+                    issue:`Run-on sentence (${ex.split(/\s+/).length} words with no breaks)`,
+                    correction:`Split into two sentences. Suggestion:\n"${suggested.substring(0,200)}${suggested.length>200?'…':''}"`,
+                    location:`Paragraph ${findPara(ex.substring(0,50))||'?'}`,
+                    context:`"${ex.substring(0,150)}${ex.length>150?'…':''}"`,
+                    explanation:'Sentences over 35 words are hard to follow and lose the reader.',
+                    impact:'MEDIUM-HIGH - Hurts clarity and flow scores.',
+                    rubric_impact:"'Organization', 'Clarity'"
+                });
+            }
 
-                    // Missing commas
-                    const intR = /(However|Therefore|Furthermore|Additionally|Moreover|Consequently|Nevertheless|Thus)\s+[a-z]/g;
-                    const intM = []; txt = assignment;
-                    while ((m = intR.exec(txt)) !== null) { intM.push({ text:m[0], ctx:txt.substring(Math.max(0,m.index-10),Math.min(txt.length,m.index+60)).trim(), para:findPara(m[0]) }); if (intM.length >= 3) break; }
-                    if (intM.length > 0) { const fe=intM[0]; grammarIssues.push({ issue:`Missing comma after transitional: "${fe.text.trim()}"`, correction:'Add comma after the transitional word.', location:`Paragraph ${fe.para||'?'} (${intM.length} instances)`, context:`"${fe.ctx}"`, explanation:'Commas after transitions are standard in academic writing.', impact:`LOW-MEDIUM - ${intM.length} errors reduce Mechanics by 3-5%.`, rubric_impact:"'Conventions', 'Mechanics'" }); }
+            // Missing commas after transitional words
+            const intR=/(However|Therefore|Furthermore|Additionally|Moreover|Consequently|Nevertheless|Thus)\s+[a-z]/g;
+            const intM=[]; txt=assignment;
+            while((m=intR.exec(txt))!==null){
+                const start=Math.max(0,m.index-5),end=Math.min(txt.length,m.index+80);
+                intM.push({text:m[0],ctx:txt.substring(start,end).trim(),para:findPara(m[0])});
+                if(intM.length>=3)break;
+            }
+            if(intM.length>0){
+                const fe=intM[0];
+                const word=fe.text.match(/^\w+/)[0];
+                const fixed=fe.ctx.replace(new RegExp(`${word}\\s+`),`${word}, `);
+                grammarIssues.push({
+                    issue:`Missing comma after "${word}"`,
+                    correction:`Add a comma: "${word}," not "${word}"\n\nYour text: "${fe.ctx}"\nFixed: "${fixed}"`,
+                    location:`Paragraph ${fe.para||'?'}${intM.length>1?` (${intM.length} total)`:''}`,
+                    context:`"${fe.ctx}"`,
+                    explanation:'Transitional words at the start of a clause need a comma after them.',
+                    impact:`LOW-MEDIUM - ${intM.length} instance${intM.length>1?'s':''} add up.`,
+                    rubric_impact:"'Conventions', 'Mechanics'"
+                });
+            }
 
-                    // Passive voice
-                    const pvR = /\b(is|are|was|were|be|been|being)\s+(\w+ed|written|taken|given|made|done|seen|known)\b/gi;
-                    const pvM = []; txt = assignment;
-                    while ((m = pvR.exec(txt)) !== null) { pvM.push({ text:m[0], ctx:txt.substring(Math.max(0,m.index-20),Math.min(txt.length,m.index+60)).trim(), para:findPara(m[0]) }); if (pvM.length >= 4) break; }
-                    if (pvM.length > 3) { const ex=pvM[0]; grammarIssues.push({ issue:`Excessive passive voice (${pvM.length} instances): "${ex.text}"`, correction:'Make active: identify WHO does the action and make them the subject.', location:`Throughout text, including ¶${ex.para||'?'}`, context:`"...${ex.ctx}..."`, explanation:'Passive voice weakens arguments.', impact:'MEDIUM - Overuse reduces Writing Quality by 8-12%.', rubric_impact:"'Style', 'Voice', 'Writing Quality'" }); }
+            // Passive voice overuse
+            const pvR=/\b(is|are|was|were|be|been|being)\s+(\w+ed|written|taken|given|made|done|seen|known)\b/gi;
+            const pvM=[]; txt=assignment;
+            while((m=pvR.exec(txt))!==null){
+                const start=Math.max(0,m.index-25),end=Math.min(txt.length,m.index+70);
+                pvM.push({text:m[0],ctx:txt.substring(start,end).trim(),para:findPara(m[0])});
+                if(pvM.length>=4)break;
+            }
+            if(pvM.length>3){
+                const ex=pvM[0];
+                grammarIssues.push({
+                    issue:`Overuse of passive voice (${pvM.length} instances)`,
+                    correction:`Make it active — put WHO does the action first.\n\nExample from your work: "${ex.ctx}"\nAsk yourself: who is doing this action? Put them at the start.`,
+                    location:`Multiple locations, first in ¶${ex.para||'?'}`,
+                    context:`"${ex.ctx}"`,
+                    explanation:'Active voice is stronger and more direct. Passive voice hides the actor.',
+                    impact:'MEDIUM - Weakens your argumentative voice throughout.',
+                    rubric_impact:"'Style', 'Voice', 'Persuasiveness'"
+                });
+            }
 
-                    // Comma splices
-                    const csR = /[a-z]\s*,\s*(however|therefore|moreover|furthermore|thus|nevertheless)\s*,/gi;
-                    const csM = []; txt = assignment;
-                    while ((m = csR.exec(txt)) !== null) { csM.push({ text:m[0], ctx:txt.substring(Math.max(0,m.index-30),Math.min(txt.length,m.index+70)).trim(), para:findPara(m[0]) }); if (csM.length >= 2) break; }
-                    if (csM.length > 0) { const ex=csM[0]; grammarIssues.push({ issue:`Comma splice: "${ex.text}"`, correction:'Use semicolon: "...; however, ..." or start new sentence.', location:`Paragraph ${ex.para||'?'}`, context:`"...${ex.ctx}..."`, explanation:'Comma splices are serious errors in academic writing.', impact:'HIGH - Can reduce grade by 5-8%.', rubric_impact:"'Grammar', 'Sentence Structure'" }); }
+            // Comma splices
+            const csR=/([a-z][^.!?]*),\s*(however|therefore|moreover|furthermore|thus|nevertheless)\s*,/gi;
+            const csM=[]; txt=assignment;
+            while((m=csR.exec(txt))!==null){
+                const start=Math.max(0,m.index),end=Math.min(txt.length,m.index+m[0].length+40);
+                const fullCtx=txt.substring(start,end).trim();
+                csM.push({text:m[0],ctx:fullCtx,para:findPara(m[0])});
+                if(csM.length>=2)break;
+            }
+            if(csM.length>0){
+                const ex=csM[0];
+                const word=ex.text.match(/,\s*(\w+)\s*,/)[1];
+                const fixed=ex.ctx.replace(new RegExp(`,\\s*${word}\\s*,`),`; ${word},`);
+                grammarIssues.push({
+                    issue:`Comma splice with "${word}"`,
+                    correction:`Use a semicolon instead of the first comma.\n\nYour text: "${ex.ctx}"\nFixed: "${fixed}"`,
+                    location:`Paragraph ${ex.para||'?'}`,
+                    context:`"${ex.ctx}"`,
+                    explanation:'Two independent clauses joined by a comma is a comma splice — a serious error.',
+                    impact:'HIGH - Major grammar error that affects credibility.',
+                    rubric_impact:"'Grammar', 'Sentence Structure'"
+                });
+            }
 
-                    if (grammarIssues.length === 0) grammarIssues.push({ issue:'No major grammatical errors detected', correction:'Continue proofreading carefully.', location:'Overall', context:'Grammar appears solid.', explanation:'Automated tools can miss context-dependent issues.', impact:'POSITIVE - Strong grammar foundation.', rubric_impact:"Maximizes 'Mechanics' and 'Grammar'" });
+            if(grammarIssues.length===0) grammarIssues.push({issue:'No major errors detected',correction:'Keep proofreading! Read your work aloud to catch subtle issues.',location:'Overall',context:'Your grammar appears solid in this scan.',explanation:'Automated scans can miss context-dependent errors — always proofread manually.',impact:'POSITIVE - Strong mechanical foundation.',rubric_impact:"'Mechanics', 'Grammar'"});
 
-                    // Vocabulary checks
-                    const vocabChecks = [
-                        { pattern:/\b(good|great|nice|okay|ok|fine)\b/gi, label:'good/great/nice', alts:['effective','compelling','robust','substantial','beneficial'], exp:'Vague positive words lack analytical precision.', impact:'MEDIUM-HIGH' },
-                        { pattern:/\b(bad|wrong|terrible|awful|poor)\b/gi, label:'bad/wrong/terrible', alts:['detrimental','problematic','counterproductive','ineffective','flawed'], exp:'Generic negative words lack precision.', impact:'MEDIUM' },
-                        { pattern:/\b(things|stuff)\b/gi, label:'things/stuff', alts:['factors','elements','components','aspects','variables'], exp:"'Things' and 'stuff' signal unclear thinking.", impact:'HIGH' },
-                        { pattern:/\ba lot\b/gi, label:'a lot', alts:['numerous','substantial','significant','considerable','extensive'], exp:"'A lot' is informal and imprecise.", impact:'MEDIUM-HIGH' }
-                    ];
-                    for (const vc of vocabChecks) {
-                        const matches = []; txt = assignment; let vm;
-                        while ((vm = vc.pattern.exec(txt)) !== null) { matches.push({ word:vm[0], ctx:txt.substring(Math.max(0,vm.index-40),Math.min(txt.length,vm.index+vm[0].length+60)).trim(), para:findPara(vm[0]) }); if (matches.length >= 3) break; }
-                        if (matches.length > 0) {
-                            const total = (assignment.match(vc.pattern)||[]).length;
-                            const fu = matches[0];
-                            vocabSuggestions.push({ original_word:fu.word.toLowerCase(), occurrences:total, location:`Paragraphs: ${matches.map(m=>`¶${m.para||'?'}`).join(', ')}`, context:`"...${fu.ctx}..."`, suggestions:vc.alts, explanation:vc.exp, impact:`${vc.impact} - Using '${fu.word}' ${total} time${total>1?'s':''} weakens writing.`, rubric_impact:"'Word Choice', 'Vocabulary', 'Academic Tone'", specific_improvement:`In ¶${fu.para||'?'}, replace '${fu.word}' with a more specific term.` });
-                        }
-                    }
-
-                    // Intensifiers
-                    const intens = []; txt = assignment; let im;
-                    const intensR = /\b(very|really|quite|extremely|incredibly)\s+(\w+)/gi;
-                    while ((im = intensR.exec(txt)) !== null) { intens.push({ word:im[0], ctx:txt.substring(Math.max(0,im.index-40),Math.min(txt.length,im.index+im[0].length+60)).trim(), para:findPara(im[0]) }); if (intens.length >= 3) break; }
-                    if (intens.length > 2) { const total=(assignment.match(/\b(very|really|quite)\b/gi)||[]).length; const fu=intens[0]; vocabSuggestions.push({ original_word:fu.word.split(' ')[0].toLowerCase(), occurrences:total, location:`Paragraphs: ${intens.slice(0,3).map(m=>`¶${m.para||'?'}`).join(', ')}`, context:`"...${fu.ctx}..."`, suggestions:['(use stronger base word)','significant','considerable','substantial','remarkable'], explanation:"Intensifiers like 'very' weaken writing.", impact:`MEDIUM - ${total} instances reduce impact by 5-8%.`, rubric_impact:"'Precision', 'Word Choice'", specific_improvement:`In ¶${fu.para||'?'}, delete the intensifier and find one stronger word.` }); }
-
-                    // AI detection
-                    const sentenceLengths = sentences.map(s => s.trim().split(/\s+/).length);
-                    const hasPersonal = /\b(I remember|in my experience|personally|I felt|I think|I believe|when I)\b/i.test(assignment);
-                    const hasContractions = /\b(don't|can't|won't|isn't|aren't|it's|I'm|we're|they're)\b/i.test(assignment);
-                    const hasFillerPhrases = /\b(It is worth noting|It should be noted|Furthermore, it is|In conclusion, it is important|It is crucial to|It is clear that)\b/i.test(assignment);
-                    const hasVaryingLength = sentenceLengths.length > 2 && (Math.max(...sentenceLengths) - Math.min(...sentenceLengths)) > 10;
-                    const hasTransitionOveruse = (assignment.match(/\b(Furthermore|Moreover|Additionally|Nevertheless|Consequently|Therefore)\b/gi)||[]).length > 4;
-                    const hasSpecific = /\b\d{4}\b|\b\d+%\b|\$\d+/i.test(assignment);
-                    let aiScore = 30;
-                    if (hasFillerPhrases) aiScore += 20;
-                    if (hasTransitionOveruse) aiScore += 15;
-                    if (!hasPersonal) aiScore += 10;
-                    if (!hasContractions) aiScore += 10;
-                    if (!hasVaryingLength) aiScore += 10;
-                    if (hasSpecific) aiScore -= 10;
-                    if (hasPersonal) aiScore -= 10;
-                    if (hasContractions) aiScore -= 5;
-                    aiScore = Math.min(95, Math.max(5, aiScore));
-
-                    const humanEls = [];
-                    const aiEls = [];
-                    if (hasPersonal) humanEls.push('Contains personal voice and first-person perspective');
-                    if (hasContractions) humanEls.push('Natural use of contractions indicates conversational writing');
-                    if (hasVaryingLength) humanEls.push('Varied sentence structure shows natural writing rhythm');
-                    if (hasSpecific) humanEls.push('Includes specific details, numbers, or dates');
-                    if (humanEls.length === 0) humanEls.push('Some natural language variation present');
-                    if (hasFillerPhrases) aiEls.push('Formulaic transitional phrases commonly used by AI systems');
-                    if (hasTransitionOveruse) aiEls.push('Overuse of formal connectives in an AI-typical pattern');
-                    if (!hasPersonal) aiEls.push('Lacks personal voice or subjective perspective');
-                    if (!hasVaryingLength) aiEls.push('Relatively uniform sentence length throughout');
-                    if (aiEls.length === 0) aiEls.push('Formal tone could indicate AI or simply formal writing style');
-
-                    fb.grammar_and_vocabulary = { grammar_issues: grammarIssues, vocabulary_suggestions: vocabSuggestions };
-                    fb.ai_detection = {
-                        likelihood_score: aiScore,
-                        confidence_level: aiScore > 70 ? 'Medium' : aiScore > 50 ? 'Low-Medium' : 'Low',
-                        analysis: aiScore > 70 ? 'Multiple indicators suggest possible AI involvement.' : aiScore > 50 ? 'Some AI-like patterns detected, but evidence is mixed.' : 'Writing shows predominantly human characteristics.',
-                        indicators: [
-                            { pattern:`Formulaic phrases: ${hasFillerPhrases?'Detected':'Not detected'}`, explanation: hasFillerPhrases?'Filler phrases like "It is worth noting" are AI hallmarks':'No excessive formulaic phrases', weight: hasFillerPhrases?'strong':'weak' },
-                            { pattern:`Transition overuse: ${hasTransitionOveruse?'Yes':'No'}`, explanation: hasTransitionOveruse?'Excessive formal connectives suggest AI':'Normal transition frequency', weight: hasTransitionOveruse?'moderate':'weak' },
-                            { pattern:`Sentence variation: ${hasVaryingLength?'Present':'Absent'}`, explanation: hasVaryingLength?'Natural variation suggests human writing':'Consistent patterns can indicate AI', weight:'moderate' },
-                            { pattern:`Personal voice: ${hasPersonal?'Present':'Absent'}`, explanation: hasPersonal?'First-person perspective indicates human authorship':'Lack of personal elements may suggest AI', weight: hasPersonal?'strong':'moderate' },
-                            { pattern:`Contractions: ${hasContractions?'Present':'Absent'}`, explanation: hasContractions?'Natural contractions suggest human writing':'Strictly formal language is common in AI text', weight:'moderate' }
-                        ],
-                        human_elements: humanEls,
-                        ai_elements: aiEls,
-                        recommendation: aiScore > 70 ? 'This submission shows several AI-associated indicators. Consider discussing the writing process with the student.' : aiScore > 55 ? 'Some AI-like patterns present, but evidence is not conclusive.' : 'Writing demonstrates authentic human characteristics.'
-                    };
+            // Vocabulary checks with sentence-level context
+            const vocabChecks=[
+                {pattern:/\b(good|great|nice|okay|ok|fine)\b/gi,alts:['effective','compelling','substantial','beneficial','valuable'],exp:'Vague positive words signal shallow analysis.',impact:'MEDIUM-HIGH'},
+                {pattern:/\b(bad|wrong|terrible|awful|poor)\b/gi,alts:['detrimental','problematic','counterproductive','ineffective','flawed'],exp:'Generic negative words miss the chance to be specific.',impact:'MEDIUM'},
+                {pattern:/\b(things|stuff)\b/gi,alts:['factors','elements','aspects','variables','components'],exp:'"Things" and "stuff" are placeholder words — always replace with a specific noun.',impact:'HIGH'},
+                {pattern:/\ba lot\b/gi,alts:['numerous','substantial','significant','a considerable number of','extensive'],exp:'"A lot" is too informal for academic writing.',impact:'MEDIUM-HIGH'}
+            ];
+            for(const vc of vocabChecks){
+                const matches=[]; txt=assignment; let vm;
+                vc.pattern.lastIndex=0;
+                while((vm=vc.pattern.exec(txt))!==null){
+                    const start=Math.max(0,vm.index-50),end=Math.min(txt.length,vm.index+vm[0].length+70);
+                    matches.push({word:vm[0],ctx:txt.substring(start,end).trim(),para:findPara(vm[0])});
+                    if(matches.length>=3)break;
                 }
+                if(matches.length>0){
+                    vc.pattern.lastIndex=0;
+                    const total=(assignment.match(vc.pattern)||[]).length;
+                    const fu=matches[0];
+                    // Build a concrete rewrite suggestion
+                    const suggestRewrite=fu.ctx.replace(new RegExp(`\\b${fu.word}\\b`,'i'),`[${vc.alts[0]}]`);
+                    vocabSuggestions.push({
+                        original_word:fu.word.toLowerCase(),
+                        occurrences:total,
+                        location:`¶${matches.map(m=>m.para||'?').join(', ¶')}`,
+                        context:`"${fu.ctx}"`,
+                        suggestions:vc.alts,
+                        explanation:vc.exp,
+                        impact:`${vc.impact} - used ${total}× across your work.`,
+                        rubric_impact:"'Word Choice', 'Academic Tone'",
+                        specific_improvement:`Try rewriting as: "${suggestRewrite}"`
+                    });
+                }
+            }
 
-                fb.reflection_prompts = [
-                    'Which specific rubric criterion am I weakest in, and what evidence shows this gap?',
-                    'If I had to explain my main argument to someone unfamiliar with the topic, what would I say?',
-                    'What\'s the single most important improvement that would have the biggest impact on my grade?',
-                    'Am I actually answering the assignment prompt, or have I drifted to a related but different topic?'
-                ];
+            // Intensifiers
+            const intensR=/\b(very|really|quite|extremely|incredibly)\s+(\w+)/gi;
+            const intens=[]; txt=assignment; let im;
+            while((im=intensR.exec(txt))!==null){
+                const start=Math.max(0,im.index-40),end=Math.min(txt.length,im.index+im[0].length+60);
+                intens.push({word:im[0],ctx:txt.substring(start,end).trim(),para:findPara(im[0])});
+                if(intens.length>=3)break;
+            }
+            if(intens.length>2){
+                const total=(assignment.match(/\b(very|really|quite)\b/gi)||[]).length;
+                const fu=intens[0];
+                const baseAdj=fu.word.split(/\s+/)[1]||'';
+                const stronger={'important':'crucial','good':'excellent','bad':'terrible','big':'enormous','small':'minimal','fast':'rapid','slow':'gradual','hard':'rigorous','easy':'straightforward'}[baseAdj]||`[stronger word for "${baseAdj}"]`;
+                vocabSuggestions.push({
+                    original_word:fu.word.split(' ')[0].toLowerCase(),
+                    occurrences:total,
+                    location:`¶${intens.slice(0,3).map(m=>m.para||'?').join(', ¶')}`,
+                    context:`"${fu.ctx}"`,
+                    suggestions:['(remove + use stronger adjective)','significant','considerable','substantial','remarkable'],
+                    explanation:`Intensifiers like "very" actually weaken writing. One strong word beats two weak ones.`,
+                    impact:`MEDIUM - ${total} instances dilute your writing's authority.`,
+                    rubric_impact:"'Precision', 'Word Choice'",
+                    specific_improvement:`Instead of "${fu.word}", just write "${stronger}".`
+                });
+            }
 
-                if (documentType === 'presentation') fb.next_steps = 'Action plan: (1) Reduce text on each slide by 50%. (2) Add 3-5 relevant visuals. (3) Create section divider slides. (4) Add source citations on data slides. (5) Write compelling opening and closing slides.';
-                else if (documentType === 'spreadsheet') fb.next_steps = 'Action plan: (1) Verify all data is complete. (2) Replace manual calculations with formulas. (3) Create 2-3 charts. (4) Add professional formatting. (5) Create a summary sheet.';
-                else fb.next_steps = 'Action plan: (1) Score yourself on each rubric criterion. (2) Identify your 2-3 biggest gaps. (3) Add 3-5 pieces of concrete evidence. (4) Add analysis explaining significance. (5) Reorganize for logical flow. (6) Strengthen introduction and conclusion.';
+            // ── AI detection with quoted examples ─────────────────────────────
+            const hasPersonal=/\b(I remember|in my experience|personally|I felt|I think|I believe|when I)\b/i.test(assignment);
+            const hasContractions=/\b(don't|can't|won't|isn't|aren't|it's|I'm|we're|they're)\b/i.test(assignment);
+            const fillerMatch=assignment.match(/\b(It is worth noting|It should be noted|Furthermore, it is|In conclusion, it is important|It is crucial to|It is clear that)\b/i);
+            const hasFillerPhrases=!!fillerMatch;
+            const fillerExample=fillerMatch?fillerMatch[0]:null;
+            const transitMatches=[...(assignment.match(/\b(Furthermore|Moreover|Additionally|Nevertheless|Consequently|Therefore)\b/g)||[])];
+            const hasTransitionOveruse=transitMatches.length>4;
+            const sentLengths=sentences.map(s=>s.trim().split(/\s+/).length);
+            const hasVaryingLength=sentLengths.length>2&&(Math.max(...sentLengths)-Math.min(...sentLengths))>10;
+            const hasSpecific=/\b\d{4}\b|\b\d+%\b|\$\d+/i.test(assignment);
 
-                return fb;
+            // Find a filler phrase in context
+            let fillerCtx='';
+            if(fillerExample){const idx=assignment.toLowerCase().indexOf(fillerExample.toLowerCase());if(idx>=0){const s=Math.max(0,idx-10),en=Math.min(assignment.length,idx+80);fillerCtx=assignment.substring(s,en).trim();}}
+
+            // Find transition overuse in context
+            let transitCtx='';
+            if(hasTransitionOveruse&&transitMatches[0]){const idx=assignment.indexOf(transitMatches[0]);if(idx>=0){const s=Math.max(0,idx-5),en=Math.min(assignment.length,idx+70);transitCtx=assignment.substring(s,en).trim();}}
+
+            let aiScore=30;
+            if(hasFillerPhrases)aiScore+=20;
+            if(hasTransitionOveruse)aiScore+=15;
+            if(!hasPersonal)aiScore+=10;
+            if(!hasContractions)aiScore+=10;
+            if(!hasVaryingLength)aiScore+=10;
+            if(hasSpecific)aiScore-=10;
+            if(hasPersonal)aiScore-=10;
+            if(hasContractions)aiScore-=5;
+            aiScore=Math.min(95,Math.max(5,aiScore));
+
+            const humanEls=[],aiEls=[];
+            if(hasPersonal)humanEls.push('Contains first-person perspective and personal voice');
+            if(hasContractions)humanEls.push('Natural contractions indicate conversational human writing');
+            if(hasVaryingLength)humanEls.push('Varied sentence lengths show natural writing rhythm');
+            if(hasSpecific)humanEls.push('Includes specific numbers, dates, or statistics');
+            if(humanEls.length===0)humanEls.push('Some natural variation in language and structure');
+            if(hasFillerPhrases)aiEls.push('Formulaic opening phrases like "It is worth noting that"');
+            if(hasTransitionOveruse)aiEls.push(`Overuse of formal connectives (${transitMatches.length} instances)`);
+            if(!hasPersonal)aiEls.push('No personal voice, first-person perspective, or subjective opinion');
+            if(!hasVaryingLength)aiEls.push('Relatively uniform sentence length throughout');
+            if(aiEls.length===0)aiEls.push('Formal tone — consistent with both careful human writing and AI generation');
+
+            fb.grammar_and_vocabulary={grammar_issues:grammarIssues,vocabulary_suggestions:vocabSuggestions};
+            fb.ai_detection={
+                likelihood_score:aiScore,
+                confidence_level:aiScore>70?'Medium':aiScore>50?'Low-Medium':'Low',
+                analysis:aiScore>70?'Several patterns commonly associated with AI-generated text were detected.':aiScore>50?'Mixed signals — some AI-like patterns alongside human writing indicators.':'Writing shows predominantly human characteristics.',
+                indicators:[
+                    {pattern:'Formulaic phrases',explanation:'Phrases like "It is worth noting that" are common AI text patterns.',weight:hasFillerPhrases?'strong':'weak',example:fillerCtx||'None found'},
+                    {pattern:'Transition overuse',explanation:`${transitMatches.length} formal connective${transitMatches.length!==1?'s':''} — AI often over-uses these.`,weight:hasTransitionOveruse?'moderate':'weak',example:transitCtx||'Normal frequency'},
+                    {pattern:'Sentence variety',explanation:hasVaryingLength?'Natural sentence length variation detected — a human writing marker.':'Sentence lengths are very consistent, which AI systems tend to produce.',weight:'moderate',example:`Shortest: ~${Math.min(...sentLengths)} words, Longest: ~${Math.max(...sentLengths)} words`},
+                    {pattern:'Personal voice',explanation:hasPersonal?'First-person perspective and personal experience are present.':'No personal voice found — AI avoids subjective language.',weight:hasPersonal?'strong':'moderate',example:hasPersonal?((assignment.match(/\b(I think|I believe|I felt|personally|in my experience)\b/i)||[''])[0]):'(none found)'},
+                    {pattern:'Contractions',explanation:hasContractions?'Natural contractions like "don\'t" suggest human writing.':'No contractions — AI tends to write "do not" rather than "don\'t".',weight:'moderate',example:hasContractions?((assignment.match(/\b(don't|can't|won't|isn't|it's|I'm)\b/i)||[''])[0]):'(none found)'}
+                ],
+                human_elements:humanEls,
+                ai_elements:aiEls,
+                recommendation:aiScore>70?'Several AI-associated patterns detected. Recommend a brief conversation with the student about their writing process.':aiScore>55?'Some AI-like patterns present, but not conclusive. Could reflect a formal writing style.':'Writing demonstrates authentic human characteristics with no strong AI indicators.'
             };
+        }
 
-            const canAnalyze = rubric.trim().length > 0 && assignment.trim().length > 0;
+        fb.reflection_prompts=[
+            'Which rubric criterion am I least confident about, and why?',
+            'If I had one hour to improve this before submitting, what would I change first?',
+            'Am I answering the exact question, or drifting to a related topic?'
+        ];
 
-            // Helper to create impact bar
-            const impactBar = (impact, wide = false) => {
-                const pct = impact.includes('HIGH') ? '85%' : impact.includes('MEDIUM-HIGH') ? '65%' : impact.includes('MEDIUM') ? '50%' : impact.includes('POSITIVE') ? '95%' : '30%';
-                const col = impact.includes('HIGH') ? 'bg-red-500' : impact.includes('MEDIUM-HIGH') ? 'bg-orange-500' : impact.includes('MEDIUM') ? 'bg-orange-400' : impact.includes('POSITIVE') ? 'bg-green-500' : 'bg-yellow-400';
-                const badgeCol = impact.includes('HIGH') ? 'bg-red-600 text-white' : impact.includes('MEDIUM') ? 'bg-orange-600 text-white' : impact.includes('POSITIVE') ? 'bg-green-600 text-white' : 'bg-yellow-400 text-slate-900';
-                return { pct, col, badgeCol };
-            };
+        return fb;
+    };
 
-            return e('div', { className:'min-h-screen', style:{ background:'linear-gradient(to bottom, #42047e, #07f49e)' } },
+    const canAnalyze=rubric.trim().length>0&&assignment.trim().length>0;
 
-                // Hero
-                e('div', { className:'relative overflow-hidden' },
-                    e('div', { className:'max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 pt-16 pb-12' },
-                        e('div', { className:'text-center max-w-3xl mx-auto' },
-                            e('h1', { className:'text-5xl sm:text-6xl font-bold text-white tracking-tight mb-3' }, 'The Teachers Desk'),
-                            e('div', { className:'inline-flex items-center gap-2 px-4 py-2 rounded-full bg-white/10 text-white text-sm font-medium mb-6' }, e(Sparkles), 'Supportive Learning Assistant'),
-                            e('h2', { className:'text-3xl sm:text-4xl font-bold text-white tracking-tight mb-4' }, 'Grow Your Work,', e('span', { className:'block text-[#07f49e]' }, 'Your Way')),
-                            e('p', { className:'text-lg text-white/90 leading-relaxed' }, 'Get thoughtful guidance on your assignments without compromising your learning. We help you discover improvements yourself—no answers, just support.')
-                        )
+    // ── RENDER ─────────────────────────────────────────────────────────────────
+    const hasFeedback=!!feedback;
+    const tabs=[
+        {id:'overview',label:'📊 Overview'},
+        {id:'growth',label:'🌱 Growth Areas'},
+        ...(feedback?.grammar_and_vocabulary?[{id:'writing',label:'📝 Writing'},{id:'ai',label:'🤖 AI Check'}]:[]),
+        {id:'next',label:'🎯 Next Steps'}
+    ];
+
+    return e('div',{style:{minHeight:'100vh'}},
+
+        // ── HERO ──────────────────────────────────────────────────────────────
+        e('div',{style:{padding:'60px 20px 40px',textAlign:'center',maxWidth:700,margin:'0 auto'}},
+            e('div',{style:{display:'inline-flex',alignItems:'center',gap:6,background:'rgba(255,255,255,0.08)',border:'1px solid rgba(255,255,255,0.15)',borderRadius:999,padding:'5px 14px',color:'#07f49e',fontSize:12,fontWeight:600,letterSpacing:'0.06em',textTransform:'uppercase',marginBottom:20}},
+                e(Sparkle), 'AI-Powered Feedback'
+            ),
+            e('h1',{style:{fontFamily:'Sora,sans-serif',fontSize:'clamp(2rem,5vw,3.2rem)',fontWeight:800,color:'white',margin:'0 0 12px',lineHeight:1.15}},
+                'The Teachers Desk'
+            ),
+            e('p',{style:{color:'rgba(255,255,255,0.65)',fontSize:16,margin:0,lineHeight:1.6}},
+                'Upload your rubric and assignment. Get specific, actionable feedback in seconds.'
+            )
+        ),
+
+        // ── INPUT SECTION ─────────────────────────────────────────────────────
+        e('div',{style:{maxWidth:900,margin:'0 auto 40px',padding:'0 20px'}},
+            e('div',{style:{background:'rgba(255,255,255,0.97)',borderRadius:20,padding:28,boxShadow:'0 20px 60px rgba(0,0,0,0.4)'}},
+
+                e('div',{style:{display:'grid',gridTemplateColumns:'1fr 1fr',gap:20,marginBottom:20}},
+
+                    // Rubric column
+                    e('div',null,
+                        e('div',{style:{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:8}},
+                            e('label',{style:{fontWeight:700,fontSize:14,color:'#1e3a5f',fontFamily:'Sora,sans-serif'}},
+                                e(FileIcon),' Assignment Rubric'
+                            ),
+                            e('div',null,
+                                e('input',{type:'file',accept:'.pdf,.doc,.docx,.ppt,.pptx,.xls,.xlsx,.txt',onChange:(ev)=>ev.target.files[0]&&handleFileUpload(ev.target.files[0],'rubric'),className:'hidden',id:'rubric-upload'}),
+                                e('button',{onClick:()=>document.getElementById('rubric-upload').click(),style:{display:'flex',alignItems:'center',gap:5,padding:'5px 12px',border:'1.5px solid #d1d5db',borderRadius:8,background:'white',cursor:'pointer',fontSize:12,fontWeight:600,color:'#374151'}},
+                                    e(UpIcon),'Upload'
+                                )
+                            )
+                        ),
+                        rubricFile && e('div',{style:{display:'flex',alignItems:'center',gap:6,padding:'5px 10px',background:'#f0fdf4',border:'1px solid #bbf7d0',borderRadius:8,marginBottom:6}},
+                            e(FileIcon), e('span',{style:{fontSize:12,color:'#166534',flex:1,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}},rubricFile.name),
+                            e('button',{onClick:()=>removeFile('rubric'),style:{background:'none',border:'none',cursor:'pointer',color:'#6b7280',padding:2}},e(XIcon))
+                        ),
+                        e('textarea',{
+                            placeholder:'Paste your rubric or grading criteria here, or upload a file above.\n\nSupports: PDF, Word (.docx), Excel (.xlsx), PowerPoint (.pptx), and text files.',
+                            value:rubric,
+                            onChange:(ev)=>setRubric(ev.target.value),
+                            style:{width:'100%',minHeight:170,resize:'vertical',border:'1.5px solid #e5e7eb',borderRadius:10,padding:'10px 12px',fontSize:13,lineHeight:1.6,color:'#374151',background:'#fafafa',fontFamily:'DM Sans,sans-serif',boxSizing:'border-box'}
+                        }),
+                        e('div',{style:{textAlign:'right',fontSize:11,color:'#9ca3af',marginTop:4}},rubric.length>0?`${rubric.length} chars`:'PDF · Word · Excel · PowerPoint · Text')
+                    ),
+
+                    // Assignment column
+                    e('div',null,
+                        e('div',{style:{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:8}},
+                            e('label',{style:{fontWeight:700,fontSize:14,color:'#1e3a5f',fontFamily:'Sora,sans-serif'}},
+                                e(FileIcon),' Your Assignment'
+                            ),
+                            e('div',null,
+                                e('input',{type:'file',accept:'.pdf,.doc,.docx,.ppt,.pptx,.xls,.xlsx,.txt',onChange:(ev)=>ev.target.files[0]&&handleFileUpload(ev.target.files[0],'assignment'),className:'hidden',id:'assignment-upload'}),
+                                e('button',{onClick:()=>document.getElementById('assignment-upload').click(),style:{display:'flex',alignItems:'center',gap:5,padding:'5px 12px',border:'1.5px solid #d1d5db',borderRadius:8,background:'white',cursor:'pointer',fontSize:12,fontWeight:600,color:'#374151'}},
+                                    e(UpIcon),'Upload'
+                                )
+                            )
+                        ),
+                        assignmentFile && e('div',{style:{display:'flex',alignItems:'center',gap:6,padding:'5px 10px',background:'#f0fdf4',border:'1px solid #bbf7d0',borderRadius:8,marginBottom:6}},
+                            e(FileIcon), e('span',{style:{fontSize:12,color:'#166534',flex:1,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}},assignmentFile.name),
+                            e('button',{onClick:()=>removeFile('assignment'),style:{background:'none',border:'none',cursor:'pointer',color:'#6b7280',padding:2}},e(XIcon))
+                        ),
+                        // Preview badges
+                        assignmentPreview && assignmentPreview.type==='presentation' &&
+                            e('div',{style:{padding:'6px 10px',background:'#fff7ed',border:'1px solid #fed7aa',borderRadius:8,marginBottom:6,fontSize:12,color:'#9a3412',fontWeight:600}},
+                                `📊 ${assignmentPreview.slideCount} slides detected`
+                            ),
+                        assignmentPreview && assignmentPreview.type==='spreadsheet' &&
+                            e('div',{style:{padding:'6px 10px',background:'#f0fdf4',border:'1px solid #bbf7d0',borderRadius:8,marginBottom:6,fontSize:12,color:'#166534',fontWeight:600}},
+                                `📋 ${assignmentPreview.sheets.length} sheet(s) detected`
+                            ),
+                        e('textarea',{
+                            placeholder:"Paste your essay, project, or assignment here, or upload above.\n\nSupports: PDF, Word (.docx), Excel (.xlsx), PowerPoint (.pptx), and text files.",
+                            value:assignment,
+                            onChange:(ev)=>setAssignment(ev.target.value),
+                            style:{width:'100%',minHeight:170,resize:'vertical',border:'1.5px solid #e5e7eb',borderRadius:10,padding:'10px 12px',fontSize:13,lineHeight:1.6,color:'#374151',background:'#fafafa',fontFamily:'DM Sans,sans-serif',boxSizing:'border-box'}
+                        }),
+                        e('div',{style:{textAlign:'right',fontSize:11,color:'#9ca3af',marginTop:4}},assignment.length>0?`${assignment.split(/\s+/).filter(Boolean).length} words`:'PDF · Word · Excel · PowerPoint · Text')
                     )
                 ),
 
-                // Feature cards
-                e('div', { className:'max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 -mt-4 mb-12' },
-                    e('div', { className:'grid grid-cols-1 md:grid-cols-2 gap-4 mb-4' },
-                        e('div', { className:'flex items-center gap-4 p-4 rounded-2xl bg-white border border-slate-100 shadow-sm' },
-                            e('div', { className:'w-12 h-12 rounded-xl bg-[#f97316]/10 flex items-center justify-center flex-shrink-0' }, e(BookOpen)),
-                            e('div', null, e('h3', { className:'font-semibold text-[#1e3a5f]' }, 'Rubric-Aligned'), e('p', { className:'text-sm text-slate-500' }, 'Feedback based on your specific criteria'))
+                // Analyze button
+                e('button',{
+                    onClick:handleAnalyze,
+                    disabled:!canAnalyze||isAnalyzing,
+                    className:'pulse-btn',
+                    style:{width:'100%',height:52,background:canAnalyze&&!isAnalyzing?'linear-gradient(135deg,#42047e,#07f49e)':'#d1d5db',border:'none',borderRadius:12,color:'white',fontSize:16,fontWeight:700,fontFamily:'Sora,sans-serif',cursor:canAnalyze&&!isAnalyzing?'pointer':'not-allowed',display:'flex',alignItems:'center',justifyContent:'center',gap:8,transition:'all 0.2s'}
+                },
+                    isAnalyzing
+                        ? e('span',{style:{display:'flex',alignItems:'center',gap:8}},
+                            e('div',{className:'spin',style:{width:20,height:20,border:'2.5px solid rgba(255,255,255,0.3)',borderTopColor:'white',borderRadius:'50%'}}),
+                            'Analyzing your work…'
+                          )
+                        : e('span',{style:{display:'flex',alignItems:'center',gap:8}}, e(Sparkle), 'Get Feedback')
+                ),
+                !canAnalyze && e('p',{style:{textAlign:'center',fontSize:12,color:'#9ca3af',margin:'8px 0 0'}},
+                    'Add both a rubric and your assignment to continue'
+                ),
+                e('div',{style:{display:'flex',alignItems:'center',justifyContent:'center',gap:6,marginTop:12,fontSize:12,color:'#9ca3af'}},
+                    e('div',{style:{width:6,height:6,borderRadius:'50%',background:'#22c55e'}}),
+                    'Your work is never saved or shared'
+                )
+            )
+        ),
+
+        // ── FEEDBACK ──────────────────────────────────────────────────────────
+        hasFeedback && e('div',{className:'fade-up',style:{maxWidth:900,margin:'0 auto 60px',padding:'0 20px'}},
+
+            // Tab bar
+            e('div',{style:{display:'flex',gap:6,marginBottom:16,background:'rgba(255,255,255,0.08)',borderRadius:12,padding:6,border:'1px solid rgba(255,255,255,0.12)'}},
+                ...tabs.map(t=>
+                    e('button',{key:t.id,className:`tab-btn ${activeTab===t.id?'active':'inactive'}`,onClick:()=>setActiveTab(t.id),
+                        style:{flex:1,padding:'7px 0',borderRadius:8,fontSize:12,fontWeight:600,cursor:'pointer',border:'none',background:activeTab===t.id?'#42047e':'transparent',color:activeTab===t.id?'white':'rgba(255,255,255,0.55)',fontFamily:'DM Sans,sans-serif',transition:'all 0.15s'}
+                    },t.label)
+                )
+            ),
+
+            // ── OVERVIEW TAB ─────────────────────────────────────────────────
+            activeTab==='overview' && e('div',{className:'fade-up'},
+
+                // Score + impression
+                e('div',{style:{display:'grid',gridTemplateColumns:'auto 1fr',gap:16,background:'white',borderRadius:16,padding:24,marginBottom:12,boxShadow:'0 2px 20px rgba(0,0,0,0.08)'}},
+                    // Score donut
+                    feedback.score_estimate && e('div',{style:{textAlign:'center',flexShrink:0}},
+                        e('svg',{width:100,height:100,viewBox:'0 0 100 100',style:{transform:'rotate(-90deg)'}},
+                            e('circle',{cx:50,cy:50,r:40,fill:'none',stroke:'#e5e7eb',strokeWidth:10}),
+                            e('circle',{cx:50,cy:50,r:40,fill:'none',
+                                stroke: feedback.score_estimate.overall>=80?'#22c55e':feedback.score_estimate.overall>=60?'#f59e0b':'#ef4444',
+                                strokeWidth:10,
+                                strokeDasharray:`${(feedback.score_estimate.overall/100)*(2*Math.PI*40)} ${2*Math.PI*40}`,
+                                strokeLinecap:'round'
+                            }),
+                            e('text',{x:50,y:50,textAnchor:'middle',dominantBaseline:'middle',style:{transform:'rotate(90deg)',transformOrigin:'50px 50px'}},
+                                e('tspan',{x:50,dy:-6,fontSize:22,fontWeight:800,fill:feedback.score_estimate.overall>=80?'#16a34a':feedback.score_estimate.overall>=60?'#d97706':'#dc2626',fontFamily:'Sora,sans-serif'},`${feedback.score_estimate.overall}`),
+                                e('tspan',{x:50,dy:14,fontSize:10,fill:'#6b7280'},'/100')
+                            )
                         ),
-                        e('div', { className:'flex items-center gap-4 p-4 rounded-2xl bg-white border border-slate-100 shadow-sm' },
-                            e('div', { className:'w-12 h-12 rounded-xl bg-[#f97316]/10 flex items-center justify-center flex-shrink-0' }, e(Target)),
-                            e('div', null, e('h3', { className:'font-semibold text-[#1e3a5f]' }, 'Growth-Focused'), e('p', { className:'text-sm text-slate-500' }, 'Identifies areas for improvement'))
+                        e('div',{style:{fontSize:11,fontWeight:600,color:'#6b7280',marginTop:2}},
+                            feedback.score_estimate.overall>=80?'Great work!':feedback.score_estimate.overall>=60?'On track':'Needs work'
                         )
                     ),
-                    e('div', { className:'p-5 rounded-2xl bg-white border border-slate-100 shadow-sm' },
-                        e('div', { className:'flex items-start gap-4' },
-                            e('div', { className:'w-12 h-12 rounded-xl bg-blue-500/10 flex items-center justify-center flex-shrink-0 mt-1' },
-                                e('svg', { xmlns:'http://www.w3.org/2000/svg',width:24,height:24,viewBox:'0 0 24 24',fill:'none',stroke:'currentColor',strokeWidth:2,className:'text-blue-600' }, e('circle',{cx:12,cy:12,r:10}), e('path',{d:'M12 16v-4'}), e('path',{d:'M12 8h.01'}))
-                            ),
-                            e('div', { className:'flex-1' },
-                                e('h3', { className:'font-semibold text-[#1e3a5f] mb-2' }, 'Using Google Docs, Sheets, or Slides?'),
-                                e('p', { className:'text-sm text-slate-600 mb-3' }, "Google files can't be uploaded directly. Download or export them first:"),
-                                e('div', { className:'space-y-2 text-sm text-slate-700' },
-                                    ...[['1.','Open your Google Doc, Sheet, or Slide'],['2.','Click File in the top menu'],['3.','Select Download and choose your format:'],['4.','Upload the downloaded file below']].map(([n,t]) =>
-                                        e('div', { key:n, className:'flex items-start gap-2' }, e('span', { className:'font-semibold text-blue-600' }, n), e('p', null, t))
-                                    ),
-                                    e('div', { className:'ml-7 text-xs bg-slate-50 p-3 rounded-lg border border-slate-200' },
-                                        e('p', null, '• Google Docs → PDF (.pdf) or Word (.docx)'),
-                                        e('p', null, '• Google Sheets → Excel (.xlsx)'),
-                                        e('p', null, '• Google Slides → PDF (.pdf) or PowerPoint (.pptx)')
-                                    )
+                    e('div',null,
+                        e('h3',{style:{fontFamily:'Sora,sans-serif',fontSize:16,fontWeight:700,color:'#1e3a5f',margin:'0 0 8px'}},
+                            'Overall Impression'
+                        ),
+                        e('p',{style:{fontSize:14,color:'#374151',lineHeight:1.6,margin:0}},feedback.overall_impression)
+                    )
+                ),
+
+                // Score breakdown
+                feedback.score_estimate && feedback.score_estimate.breakdown && e('div',{style:{background:'white',borderRadius:16,padding:20,marginBottom:12,boxShadow:'0 2px 20px rgba(0,0,0,0.08)'}},
+                    e('h4',{style:{fontFamily:'Sora,sans-serif',fontSize:14,fontWeight:700,color:'#1e3a5f',margin:'0 0 12px'}},'Score Breakdown'),
+                    e('div',{style:{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(140px,1fr))',gap:8}},
+                        ...feedback.score_estimate.breakdown.map((item,i)=>{
+                            const pct=Math.round((item.score/item.max)*100);
+                            const col=pct>=80?'#22c55e':pct>=60?'#f59e0b':'#ef4444';
+                            return e('div',{key:i,style:{padding:'10px 12px',background:'#f8fafc',borderRadius:10,border:'1px solid #e5e7eb'}},
+                                e('div',{style:{display:'flex',justifyContent:'space-between',marginBottom:6}},
+                                    e('span',{style:{fontSize:12,fontWeight:600,color:'#374151'}},item.criterion),
+                                    e('span',{style:{fontSize:12,fontWeight:700,color:col}},`${item.score}/${item.max}`)
                                 ),
-                                e('p', { className:'text-xs text-slate-500 mt-3 italic' }, '💡 Tip: PDF format works best for preserving formatting!')
+                                e('div',{className:'grade-track'},e('div',{className:'grade-fill',style:{width:`${pct}%`,background:col}}))
+                            );
+                        })
+                    )
+                ),
+
+                // Strengths
+                e('div',{style:{background:'white',borderRadius:16,padding:20,boxShadow:'0 2px 20px rgba(0,0,0,0.08)'}},
+                    e('h4',{style:{fontFamily:'Sora,sans-serif',fontSize:14,fontWeight:700,color:'#1e3a5f',margin:'0 0 12px'}},'✨ What You\'re Doing Well'),
+                    ...feedback.strengths.map((s,i)=>e(StrengthRow,{key:i,item:s,i}))
+                )
+            ),
+
+            // ── GROWTH AREAS TAB ─────────────────────────────────────────────
+            activeTab==='growth' && e('div',{className:'fade-up'},
+                e('div',{style:{background:'white',borderRadius:16,padding:20,boxShadow:'0 2px 20px rgba(0,0,0,0.08)',marginBottom:12}},
+                    e('h4',{style:{fontFamily:'Sora,sans-serif',fontSize:14,fontWeight:700,color:'#1e3a5f',margin:'0 0 12px'}},'🌱 Opportunities for Growth'),
+                    ...feedback.growth_areas.map((a,i)=>e(GrowthRow,{key:i,item:a,i}))
+                ),
+                // Reflection prompts
+                e('div',{style:{background:'white',borderRadius:16,padding:20,boxShadow:'0 2px 20px rgba(0,0,0,0.08)'}},
+                    e('h4',{style:{fontFamily:'Sora,sans-serif',fontSize:14,fontWeight:700,color:'#1e3a5f',margin:'0 0 12px'}},'🤔 Reflect on These'),
+                    e('div',{style:{display:'flex',flexDirection:'column',gap:8}},
+                        ...feedback.reflection_prompts.map((p,i)=>
+                            e('div',{key:i,style:{display:'flex',gap:10,padding:'10px 12px',background:'#f8fafc',borderRadius:10,border:'1px solid #e5e7eb'}},
+                                e('div',{style:{width:22,height:22,borderRadius:'50%',background:'linear-gradient(135deg,#42047e,#6d28d9)',color:'white',display:'flex',alignItems:'center',justifyContent:'center',fontSize:11,fontWeight:700,flexShrink:0}},i+1),
+                                e('p',{style:{fontSize:13,color:'#374151',margin:0,lineHeight:1.5}},p)
                             )
                         )
                     )
+                )
+            ),
+
+            // ── WRITING TAB ───────────────────────────────────────────────────
+            activeTab==='writing' && feedback.grammar_and_vocabulary && e('div',{className:'fade-up'},
+                e('div',{style:{background:'white',borderRadius:16,padding:20,boxShadow:'0 2px 20px rgba(0,0,0,0.08)',marginBottom:12}},
+                    e('h4',{style:{fontFamily:'Sora,sans-serif',fontSize:14,fontWeight:700,color:'#1e3a5f',margin:'0 0 4px'}},'⚠️ Grammar & Punctuation'),
+                    e('p',{style:{fontSize:12,color:'#6b7280',margin:'0 0 12px'}},'Each card shows the exact text from your work and how to fix it.'),
+                    ...feedback.grammar_and_vocabulary.grammar_issues.map((item,i)=>e(GrammarCard,{key:i,item}))
                 ),
+                feedback.grammar_and_vocabulary.vocabulary_suggestions.length>0 && e('div',{style:{background:'white',borderRadius:16,padding:20,boxShadow:'0 2px 20px rgba(0,0,0,0.08)'}},
+                    e('h4',{style:{fontFamily:'Sora,sans-serif',fontSize:14,fontWeight:700,color:'#1e3a5f',margin:'0 0 4px'}},'💬 Vocabulary Upgrades'),
+                    e('p',{style:{fontSize:12,color:'#6b7280',margin:'0 0 12px'}},'These words appear in your work and can be made more precise and academic.'),
+                    ...feedback.grammar_and_vocabulary.vocabulary_suggestions.map((item,i)=>e(VocabCard,{key:i,item}))
+                )
+            ),
 
-                // Main content
-                e('div', { className:'max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pb-20' },
-
-                    // Input card
-                    e('div', { className:'mb-8' },
-                        e('div', { className:'border-0 shadow-lg overflow-hidden rounded-lg bg-white' },
-                            e('div', { className:'bg-gradient-to-r from-[#1e3a5f] to-[#2d4a6f] text-white p-6' },
-                                e('h3', { className:'text-xl font-semibold mb-2' }, 'Submit Your Work'),
-                                e('p', { className:'text-slate-300 text-sm' }, 'Paste your rubric and assignment to receive supportive feedback')
+            // ── AI CHECK TAB ──────────────────────────────────────────────────
+            activeTab==='ai' && feedback.ai_detection && e('div',{className:'fade-up'},
+                // Score card
+                e('div',{style:{background:'white',borderRadius:16,padding:24,boxShadow:'0 2px 20px rgba(0,0,0,0.08)',marginBottom:12}},
+                    e('div',{style:{display:'grid',gridTemplateColumns:'120px 1fr',gap:20,alignItems:'center'}},
+                        // Gauge
+                        e('div',{style:{textAlign:'center'}},
+                            e('svg',{width:110,height:110,viewBox:'0 0 110 110',style:{transform:'rotate(-90deg)'}},
+                                e('circle',{cx:55,cy:55,r:44,fill:'none',stroke:'#e5e7eb',strokeWidth:12}),
+                                e('circle',{cx:55,cy:55,r:44,fill:'none',
+                                    stroke:feedback.ai_detection.likelihood_score>70?'#ef4444':feedback.ai_detection.likelihood_score>50?'#f59e0b':'#22c55e',
+                                    strokeWidth:12,
+                                    strokeDasharray:`${(feedback.ai_detection.likelihood_score/100)*(2*Math.PI*44)} ${2*Math.PI*44}`,
+                                    strokeLinecap:'round'
+                                }),
+                                e('text',{x:55,y:55,textAnchor:'middle',dominantBaseline:'middle',style:{transform:'rotate(90deg)',transformOrigin:'55px 55px'}},
+                                    e('tspan',{x:55,dy:-8,fontSize:26,fontWeight:800,fontFamily:'Sora,sans-serif',fill:feedback.ai_detection.likelihood_score>70?'#dc2626':feedback.ai_detection.likelihood_score>50?'#d97706':'#16a34a'},`${feedback.ai_detection.likelihood_score}%`),
+                                    e('tspan',{x:55,dy:16,fontSize:10,fill:'#6b7280'},'AI Likelihood')
+                                )
+                            )
+                        ),
+                        e('div',null,
+                            e('div',{style:{display:'flex',alignItems:'center',gap:8,marginBottom:10}},
+                                e('span',{style:{fontFamily:'Sora,sans-serif',fontSize:16,fontWeight:700,color:'#1e293b'}},'AI Content Analysis'),
+                                e('span',{style:{padding:'3px 10px',borderRadius:999,fontSize:12,fontWeight:700,background:feedback.ai_detection.likelihood_score>70?'#fee2e2':feedback.ai_detection.likelihood_score>50?'#fef3c7':'#d1fae5',color:feedback.ai_detection.likelihood_score>70?'#991b1b':feedback.ai_detection.likelihood_score>50?'#92400e':'#065f46'}},
+                                    feedback.ai_detection.likelihood_score>70?'High AI Risk':feedback.ai_detection.likelihood_score>50?'Moderate Risk':'Likely Human'
+                                )
                             ),
-                            e('div', { className:'p-6 space-y-6' },
-                                e('div', { className:'grid grid-cols-1 lg:grid-cols-2 gap-6' },
-
-                                    // Rubric
-                                    e('div', { className:'space-y-3' },
-                                        e('div', { className:'flex items-center justify-between' },
-                                            e('div', { className:'flex items-center gap-2' }, e(FileText), e('label', { className:'text-sm font-medium text-slate-700' }, 'Assignment Rubric')),
-                                            e('div', null,
-                                                e('input', { type:'file', accept:'.pdf,.doc,.docx,.ppt,.pptx,.xls,.xlsx,.txt', onChange:(ev)=>ev.target.files[0]&&handleFileUpload(ev.target.files[0],'rubric'), className:'hidden', id:'rubric-upload' }),
-                                                e('button', { onClick:()=>document.getElementById('rubric-upload').click(), className:'text-xs px-3 py-1.5 border border-slate-300 rounded-md hover:bg-slate-50 flex items-center gap-1' }, e(UploadIcon), 'Upload File')
-                                            )
-                                        ),
-                                        rubricFile && e('div', { className:'flex items-center gap-2 p-2 bg-[#1e3a5f]/5 rounded-lg' },
-                                            e(FileText), e('span', { className:'text-xs text-slate-600 flex-1 truncate' }, rubricFile.name),
-                                            e('button', { className:'h-6 w-6 hover:bg-slate-200 rounded flex items-center justify-center', onClick:()=>removeFile('rubric') }, e(XIcon))
-                                        ),
-                                        e('textarea', { placeholder:'Paste your rubric or grading criteria here or upload a file...\n\nThis helps us understand exactly what your teacher is looking for.', value:rubric, onChange:(ev)=>setRubric(ev.target.value), className:'w-full min-h-[200px] resize-none border border-slate-200 focus:border-[#f97316] focus:ring-2 focus:ring-[#f97316]/20 rounded-xl text-sm p-3 outline-none' }),
-                                        e('span', { className:'text-xs text-slate-400' }, rubric.length > 0 ? `${rubric.length} characters` : 'Paste text or upload file')
-                                    ),
-
-                                    // Assignment
-                                    e('div', { className:'space-y-3' },
-                                        e('div', { className:'flex items-center justify-between' },
-                                            e('div', { className:'flex items-center gap-2' }, e(FileText), e('label', { className:'text-sm font-medium text-slate-700' }, 'Your Assignment')),
-                                            e('div', null,
-                                                e('input', { type:'file', accept:'.pdf,.doc,.docx,.ppt,.pptx,.xls,.xlsx,.txt', onChange:(ev)=>ev.target.files[0]&&handleFileUpload(ev.target.files[0],'assignment'), className:'hidden', id:'assignment-upload' }),
-                                                e('button', { onClick:()=>document.getElementById('assignment-upload').click(), className:'text-xs px-3 py-1.5 border border-slate-300 rounded-md hover:bg-slate-50 flex items-center gap-1' }, e(UploadIcon), 'Upload File')
-                                            )
-                                        ),
-                                        assignmentFile && e('div', { className:'flex items-center gap-2 p-2 bg-[#1e3a5f]/5 rounded-lg' },
-                                            e(FileText), e('span', { className:'text-xs text-slate-600 flex-1 truncate' }, assignmentFile.name),
-                                            e('button', { className:'h-6 w-6 hover:bg-slate-200 rounded flex items-center justify-center', onClick:()=>removeFile('assignment') }, e(XIcon))
-                                        ),
-
-                                        // Presentation preview
-                                        assignmentPreview && assignmentPreview.type === 'presentation' &&
-                                            e('div', { className:'mt-3 p-4 bg-orange-50 rounded-lg border border-orange-200' },
-                                                e('div', { className:'flex items-center gap-2 mb-2' },
-                                                    e('span', { className:'text-sm font-semibold text-orange-900' }, '📊 Presentation Preview'),
-                                                    e('span', { className:'text-xs text-orange-700 ml-auto' }, `${assignmentPreview.slideCount} slides`)
-                                                ),
-                                                e('div', { className:'space-y-2' },
-                                                    ...assignmentPreview.slides.map((slide, idx) =>
-                                                        e('div', { key:idx, className:'bg-white p-3 rounded border border-orange-200' },
-                                                            e('span', { className:'text-xs font-bold text-orange-600' }, `Slide ${slide.number}: `),
-                                                            e('span', { className:'text-xs text-slate-700' }, slide.text ? slide.text.substring(0,120)+'...' : 'No text')
-                                                        )
-                                                    )
-                                                )
-                                            ),
-
-                                        // Spreadsheet preview
-                                        assignmentPreview && assignmentPreview.type === 'spreadsheet' &&
-                                            e('div', { className:'mt-3 p-4 bg-green-50 rounded-lg border border-green-200' },
-                                                e('div', { className:'flex items-center gap-2 mb-2' },
-                                                    e('span', { className:'text-sm font-semibold text-green-900' }, '📊 Spreadsheet Preview'),
-                                                    e('span', { className:'text-xs text-green-700 ml-auto' }, `${assignmentPreview.sheets.length} sheet(s)`)
-                                                ),
-                                                e('div', { className:'bg-white p-2 rounded border border-green-200 overflow-x-auto' },
-                                                    e('table', { className:'w-full text-xs border-collapse' },
-                                                        e('tbody', null,
-                                                            ...assignmentPreview.data.map((row, ridx) =>
-                                                                e('tr', { key:ridx, className: ridx === 0 ? 'bg-green-100 font-semibold' : '' },
-                                                                    ...row.map((cell, cidx) =>
-                                                                        e('td', { key:cidx, className:'border border-green-200 px-2 py-1' }, String(cell).substring(0,20))
-                                                                    )
-                                                                )
-                                                            )
-                                                        )
-                                                    )
-                                                )
-                                            ),
-
-                                        e('textarea', { placeholder:"Paste your assignment, essay, or project work here or upload a file...\n\nThis is where you'll add the work you want feedback on.", value:assignment, onChange:(ev)=>setAssignment(ev.target.value), className:'w-full min-h-[200px] resize-none border border-slate-200 focus:border-[#f97316] focus:ring-2 focus:ring-[#f97316]/20 rounded-xl text-sm p-3 outline-none' }),
-                                        e('span', { className:'text-xs text-slate-400' }, assignment.length > 0 ? `${assignment.length} characters` : 'Paste text or upload file')
+                            e('p',{style:{fontSize:13,color:'#374151',margin:'0 0 10px',lineHeight:1.5}},feedback.ai_detection.analysis),
+                            e('div',{style:{display:'flex',gap:8'}},
+                                e('div',{style:{flex:1,padding:'8px 10px',background:'#f0fdf4',borderRadius:8,border:'1px solid #bbf7d0'}},
+                                    e('div',{style:{fontSize:10,fontWeight:700,color:'#065f46',marginBottom:4,textTransform:'uppercase',letterSpacing:'0.05em'}},'✅ Human signals'),
+                                    e('ul',{style:{margin:0,paddingLeft:14}},
+                                        ...feedback.ai_detection.human_elements.map((el,i)=>e('li',{key:i,style:{fontSize:12,color:'#166534',marginBottom:2}},el))
                                     )
                                 ),
-
-                                // Analyze button
-                                e('button', { onClick:handleAnalyze, disabled:!canAnalyze||isAnalyzing, className:'w-full h-12 bg-[#f97316] hover:bg-[#ea580c] text-white font-medium rounded-xl shadow-lg transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed' },
-                                    isAnalyzing
-                                        ? e('span', { className:'flex items-center justify-center gap-2' }, e('div', { className:'w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin' }), 'Analyzing...')
-                                        : e('span', { className:'flex items-center justify-center gap-2' }, e(Sparkles), 'Get Supportive Feedback')
-                                ),
-                                !canAnalyze && e('p', { className:'text-center text-xs text-slate-400 mt-3' }, 'Please provide both a rubric and your assignment'),
-                                e('div', { className:'flex items-center justify-center gap-3 text-sm text-slate-600 pt-4 border-t border-slate-200 mt-4' },
-                                    e('div', { className:'w-2 h-2 rounded-full bg-green-400' }), 'Your work is never stored or shared'
+                                e('div',{style:{flex:1,padding:'8px 10px',background:'#fff5f5',borderRadius:8,border:'1px solid #fca5a5',marginLeft:8}},
+                                    e('div',{style:{fontSize:10,fontWeight:700,color:'#991b1b',marginBottom:4,textTransform:'uppercase',letterSpacing:'0.05em'}},'⚠️ AI signals'),
+                                    e('ul',{style:{margin:0,paddingLeft:14}},
+                                        ...feedback.ai_detection.ai_elements.map((el,i)=>e('li',{key:i,style:{fontSize:12,color:'#7f1d1d',marginBottom:2}},el))
+                                    )
                                 )
                             )
                         )
+                    )
+                ),
+                // Indicator details with examples
+                e('div',{style:{background:'white',borderRadius:16,padding:20,boxShadow:'0 2px 20px rgba(0,0,0,0.08)',marginBottom:12}},
+                    e('h4',{style:{fontFamily:'Sora,sans-serif',fontSize:14,fontWeight:700,color:'#1e3a5f',margin:'0 0 4px'}},'Pattern Analysis'),
+                    e('p',{style:{fontSize:12,color:'#6b7280',margin:'0 0 12px'}},'Specific examples from your text that influenced this score.'),
+                    e('div',null, ...feedback.ai_detection.indicators.map((ind,i)=>e(AiIndicatorRow,{key:i,ind})))
+                ),
+                // Recommendation
+                e('div',{style:{background:feedback.ai_detection.likelihood_score>70?'#fff5f5':feedback.ai_detection.likelihood_score>55?'#fffbeb':'#f0fdf4',border:`1.5px solid ${feedback.ai_detection.likelihood_score>70?'#fca5a5':feedback.ai_detection.likelihood_score>55?'#fde68a':'#bbf7d0'}`,borderRadius:14,padding:16}},
+                    e('p',{style:{fontSize:13,color:'#374151',margin:'0 0 8px',fontWeight:700}},
+                        (feedback.ai_detection.likelihood_score>70?'🚨':feedback.ai_detection.likelihood_score>55?'⚡':'ℹ️')+' Recommendation'
                     ),
-
-                    // Feedback
-                    e('div', { className:'mt-8' },
-                        isAnalyzing
-                            ? e('div', { className:'bg-white rounded-lg p-12 text-center shadow-lg' },
-                                e('div', { className:'w-16 h-16 border-4 border-[#f97316]/20 border-t-[#f97316] rounded-full animate-spin mx-auto mb-4' }),
-                                e('h3', { className:'text-xl font-semibold text-[#1e3a5f] mb-2' }, 'Analyzing Your Work'),
-                                e('p', { className:'text-slate-500' }, 'Crafting personalized feedback just for you...')
-                              )
-                            : feedback
-                                ? e('div', { className:'bg-white rounded-lg overflow-hidden shadow-lg' },
-                                    e('div', { className:'bg-gradient-to-r from-[#f97316] to-[#ea580c] text-white p-6' },
-                                        e('h3', { className:'text-xl font-semibold mb-2' }, 'Your Feedback'),
-                                        e('p', { className:'text-sm text-white/90' }, 'Guidance to help you grow')
-                                    ),
-                                    e('div', { className:'p-6 space-y-6' },
-                                        e('p', { className:'text-slate-700 leading-relaxed' }, feedback.overall_impression),
-
-                                        // Strengths
-                                        e('div', null,
-                                            e('h4', { className:'text-lg font-semibold text-[#1e3a5f] mb-3' }, "✨ What You're Doing Well"),
-                                            e('div', { className:'space-y-3' },
-                                                ...feedback.strengths.map((s, i) =>
-                                                    e('div', { key:i, className:'bg-green-50 border border-green-100 rounded-lg p-4' },
-                                                        e('h5', { className:'font-semibold text-green-900 mb-1' }, s.area),
-                                                        e('p', { className:'text-sm text-green-800' }, s.observation)
-                                                    )
-                                                )
-                                            )
-                                        ),
-
-                                        // Growth areas
-                                        e('div', null,
-                                            e('h4', { className:'text-lg font-semibold text-[#1e3a5f] mb-3' }, '🌱 Opportunities for Growth'),
-                                            e('div', { className:'space-y-4' },
-                                                ...feedback.growth_areas.map((area, i) =>
-                                                    e('div', { key:i, className:'bg-blue-50 border border-blue-100 rounded-lg p-4' },
-                                                        e('h5', { className:'font-semibold text-blue-900 mb-2' }, area.rubric_criterion),
-                                                        e('p', { className:'text-sm text-blue-800 mb-2 italic' }, '💭 ' + area.guiding_question),
-                                                        e('p', { className:'text-sm text-blue-700' }, area.encouragement)
-                                                    )
-                                                )
-                                            )
-                                        ),
-
-                                        // Reflection prompts
-                                        e('div', null,
-                                            e('h4', { className:'text-lg font-semibold text-[#1e3a5f] mb-3' }, '🤔 Questions for Reflection'),
-                                            e('div', { className:'space-y-2' },
-                                                ...feedback.reflection_prompts.map((p, i) =>
-                                                    e('div', { key:i, className:'flex items-start gap-3 p-3 bg-slate-50 rounded-lg' },
-                                                        e('span', { className:'text-[#f97316] font-bold text-sm' }, `${i+1}.`),
-                                                        e('p', { className:'text-sm text-slate-700' }, p)
-                                                    )
-                                                )
-                                            )
-                                        ),
-
-                                        // Grammar & Vocab (essays)
-                                        feedback.grammar_and_vocabulary && e('div', { className:'border-t border-slate-200 pt-6' },
-                                            e('h4', { className:'text-lg font-semibold text-[#1e3a5f] mb-4' }, '📝 Writing Mechanics & Style Analysis'),
-
-                                            e('h5', { className:'text-md font-semibold text-slate-700 mb-3' }, 'Grammar & Punctuation'),
-                                            e('div', { className:'grid gap-4 mb-6' },
-                                                ...feedback.grammar_and_vocabulary.grammar_issues.map((item, i) => {
-                                                    const { pct, col, badgeCol } = impactBar(item.impact || '');
-                                                    return e('div', { key:i, className:'bg-white border-2 border-amber-300 rounded-xl overflow-hidden shadow-lg' },
-                                                        e('div', { className:'bg-gradient-to-r from-amber-500 to-orange-500 px-4 py-3 flex items-center justify-between' },
-                                                            e('div', { className:'flex items-center gap-3' },
-                                                                e('div', { className:'w-10 h-10 bg-white rounded-full flex items-center justify-center text-2xl' }, '⚠️'),
-                                                                e('div', null,
-                                                                    e('p', { className:'text-white font-bold text-sm' }, item.issue.substring(0,55) + (item.issue.length > 55 ? '...' : '')),
-                                                                    item.location && e('p', { className:'text-amber-100 text-xs' }, '📍 ' + item.location)
-                                                                )
-                                                            ),
-                                                            item.impact && e('div', { className:`px-3 py-1 rounded-full text-xs font-black ${badgeCol}` }, item.impact.split(' - ')[0])
-                                                        ),
-                                                        e('div', { className:'p-4 grid md:grid-cols-2 gap-4' },
-                                                            e('div', { className:'space-y-3' },
-                                                                item.context && e('div', { className:'bg-red-50 border-l-4 border-red-400 rounded p-3' },
-                                                                    e('div', { className:'flex items-center gap-2 mb-1' }, e('span', null, '❌'), e('span', { className:'text-xs font-bold text-red-800' }, 'YOUR TEXT')),
-                                                                    e('p', { className:'text-xs text-red-900 font-mono' }, item.context)
-                                                                ),
-                                                                e('div', { className:'bg-green-50 border-l-4 border-green-400 rounded p-3' },
-                                                                    e('div', { className:'flex items-center gap-2 mb-1' }, e('span', null, '✅'), e('span', { className:'text-xs font-bold text-green-800' }, 'HOW TO FIX')),
-                                                                    e('p', { className:'text-xs text-green-900' }, item.correction)
-                                                                )
-                                                            ),
-                                                            e('div', { className:'space-y-3' },
-                                                                item.impact && e('div', { className:'bg-slate-50 rounded-lg p-3 border border-slate-200' },
-                                                                    e('p', { className:'text-xs font-bold text-slate-700 mb-2' }, '📊 GRADE IMPACT'),
-                                                                    e('div', { className:'flex items-center gap-2 mb-1' },
-                                                                        e('div', { className:'flex-1 h-4 bg-slate-200 rounded-full overflow-hidden' }, e('div', { className:`h-full ${col}`, style:{ width: pct } })),
-                                                                        e('span', { className:'text-xs font-bold text-slate-700 w-10 text-right' }, pct)
-                                                                    ),
-                                                                    e('p', { className:'text-xs text-slate-600' }, item.impact.split(' - ').slice(1).join(' - '))
-                                                                ),
-                                                                item.rubric_impact && e('div', { className:'bg-blue-50 rounded-lg p-3 border border-blue-200' },
-                                                                    e('p', { className:'text-xs font-bold text-blue-800 mb-2' }, '🎯 RUBRIC AREAS'),
-                                                                    e('div', { className:'flex flex-wrap gap-1' },
-                                                                        ...item.rubric_impact.split(',').map((a, idx) =>
-                                                                            e('span', { key:idx, className:'bg-blue-200 text-blue-900 px-2 py-1 rounded text-xs' }, a.trim())
-                                                                        )
-                                                                    )
-                                                                )
-                                                            )
-                                                        )
-                                                    );
-                                                })
-                                            ),
-
-                                            e('h5', { className:'text-md font-semibold text-slate-700 mb-3' }, 'Vocabulary Enhancement'),
-                                            e('div', { className:'grid gap-4' },
-                                                ...feedback.grammar_and_vocabulary.vocabulary_suggestions.map((item, i) => {
-                                                    const { pct, col, badgeCol } = impactBar(item.impact || '');
-                                                    return e('div', { key:i, className:'bg-white border-2 border-purple-300 rounded-xl overflow-hidden shadow-lg' },
-                                                        e('div', { className:'bg-gradient-to-r from-purple-500 to-indigo-500 px-4 py-3 flex items-center justify-between' },
-                                                            e('div', { className:'flex items-center gap-3' },
-                                                                e('div', { className:'w-10 h-10 bg-white rounded-full flex items-center justify-center' }, '🔍'),
-                                                                e('div', null,
-                                                                    e('p', { className:'text-white font-bold' }, `Replace: "${item.original_word}"`),
-                                                                    item.location && e('p', { className:'text-purple-100 text-xs' }, '📍 ' + item.location)
-                                                                )
-                                                            ),
-                                                            e('div', { className:'flex items-center gap-2' },
-                                                                item.occurrences > 0 && e('div', { className:'bg-white/30 rounded-full px-3 py-1' }, e('span', { className:'text-white text-xs font-bold' }, `${item.occurrences}× used`)),
-                                                                item.impact && e('div', { className:`px-3 py-1 rounded-full text-xs font-black ${badgeCol}` }, item.impact.split(' - ')[0])
-                                                            )
-                                                        ),
-                                                        e('div', { className:'p-4 space-y-4' },
-                                                            item.context && e('div', { className:'bg-purple-50 border-l-4 border-purple-400 rounded p-3' },
-                                                                e('p', { className:'text-xs font-bold text-purple-800 mb-1' }, '💬 HOW YOU USED IT'),
-                                                                e('p', { className:'text-xs text-purple-900 font-mono italic' }, item.context)
-                                                            ),
-                                                            e('div', null,
-                                                                e('p', { className:'text-xs font-bold text-slate-700 mb-2' }, '💡 BETTER ALTERNATIVES'),
-                                                                e('div', { className:'grid grid-cols-2 md:grid-cols-3 gap-2' },
-                                                                    ...item.suggestions.map((sug, j) =>
-                                                                        e('div', { key:j, className:'bg-gradient-to-br from-purple-400 to-indigo-500 text-white px-4 py-3 rounded-lg text-center font-bold text-sm shadow-md' }, sug)
-                                                                    )
-                                                                )
-                                                            ),
-                                                            e('div', { className:'grid md:grid-cols-2 gap-3' },
-                                                                item.impact && e('div', { className:'bg-slate-50 rounded-lg p-3 border border-slate-200' },
-                                                                    e('p', { className:'text-xs font-bold text-slate-700 mb-2' }, '📊 GRADE IMPACT'),
-                                                                    e('div', { className:'flex items-center gap-2 mb-1' },
-                                                                        e('div', { className:'flex-1 h-3 bg-slate-200 rounded-full overflow-hidden' }, e('div', { className:`h-full ${col}`, style:{ width: pct } })),
-                                                                        e('span', { className:'text-xs font-bold text-slate-700' }, pct)
-                                                                    ),
-                                                                    e('p', { className:'text-xs text-slate-600' }, item.impact.split(' - ').slice(1).join(' - ').substring(0,120))
-                                                                ),
-                                                                item.rubric_impact && e('div', { className:'bg-indigo-50 rounded-lg p-3 border border-indigo-200' },
-                                                                    e('p', { className:'text-xs font-bold text-indigo-800 mb-2' }, '🎯 RUBRIC AREAS'),
-                                                                    e('div', { className:'flex flex-wrap gap-1' },
-                                                                        ...item.rubric_impact.split(',').map((a, idx) =>
-                                                                            e('span', { key:idx, className:'bg-indigo-200 text-indigo-900 px-2 py-1 rounded text-xs' }, a.trim())
-                                                                        )
-                                                                    )
-                                                                )
-                                                            ),
-                                                            item.specific_improvement && e('div', { className:'bg-yellow-50 border-2 border-yellow-400 rounded-lg p-3' },
-                                                                e('p', { className:'text-xs font-bold text-amber-900 mb-1' }, '🎯 QUICK ACTION'),
-                                                                e('p', { className:'text-xs text-amber-800' }, item.specific_improvement)
-                                                            )
-                                                        )
-                                                    );
-                                                })
-                                            )
-                                        ),
-
-                                        // AI Detection
-                                        feedback.ai_detection && e('div', { className:'border-t border-slate-200 pt-6' },
-                                            e('h4', { className:'text-lg font-semibold text-[#1e3a5f] mb-4' }, '🤖 AI Content Analysis'),
-                                            e('div', { className:'bg-slate-50 border-2 border-slate-300 rounded-xl p-6 mb-4' },
-                                                e('div', { className:'flex flex-col md:flex-row items-center gap-6' },
-                                                    e('div', { className:'flex-shrink-0' },
-                                                        e('svg', { width:160, height:160, viewBox:'0 0 160 160', style:{ transform:'rotate(-90deg)' } },
-                                                            e('circle', { cx:80, cy:80, r:70, fill:'none', stroke:'#e2e8f0', strokeWidth:20 }),
-                                                            e('circle', { cx:80, cy:80, r:70, fill:'none',
-                                                                stroke: feedback.ai_detection.likelihood_score > 70 ? '#ef4444' : feedback.ai_detection.likelihood_score > 50 ? '#eab308' : '#22c55e',
-                                                                strokeWidth:20,
-                                                                strokeDasharray:`${(feedback.ai_detection.likelihood_score/100)*(2*Math.PI*70)} ${2*Math.PI*70}`,
-                                                                strokeLinecap:'round'
-                                                            }),
-                                                            e('text', { x:80, y:80, textAnchor:'middle', dominantBaseline:'middle', style:{ transform:'rotate(90deg)', transformOrigin:'80px 80px' } },
-                                                                e('tspan', { x:80, dy:-8, fontSize:28, fontWeight:'bold', fill: feedback.ai_detection.likelihood_score > 70 ? '#ef4444' : feedback.ai_detection.likelihood_score > 50 ? '#eab308' : '#22c55e' }, `${feedback.ai_detection.likelihood_score}%`),
-                                                                e('tspan', { x:80, dy:20, fontSize:11, fill:'#64748b' }, 'AI Likelihood')
-                                                            )
-                                                        )
-                                                    ),
-                                                    e('div', { className:'flex-1' },
-                                                        e('div', { className:'flex items-center gap-3 mb-3' },
-                                                            e('h5', { className:'text-lg font-semibold text-slate-900' }, 'Overall Assessment'),
-                                                            e('span', { className:`px-3 py-1 rounded-full text-sm font-bold ${feedback.ai_detection.likelihood_score > 70 ? 'bg-red-100 text-red-700' : feedback.ai_detection.likelihood_score > 50 ? 'bg-yellow-100 text-yellow-700' : 'bg-green-100 text-green-700'}` },
-                                                                feedback.ai_detection.likelihood_score > 70 ? 'High AI Risk' : feedback.ai_detection.likelihood_score > 50 ? 'Moderate Risk' : 'Likely Human'
-                                                            )
-                                                        ),
-                                                        e('div', { className:'w-full bg-slate-200 rounded-full h-3 mb-2' },
-                                                            e('div', { className:`h-3 rounded-full ${feedback.ai_detection.likelihood_score > 70 ? 'bg-red-500' : feedback.ai_detection.likelihood_score > 50 ? 'bg-yellow-400' : 'bg-green-500'}`, style:{ width:`${feedback.ai_detection.likelihood_score}%` } })
-                                                        ),
-                                                        e('div', { className:'flex justify-between text-xs text-slate-500 mt-1' }, e('span', null, '0% (Human)'), e('span', null, '100% (AI)')),
-                                                        e('p', { className:'text-sm text-slate-700 mt-3' }, feedback.ai_detection.analysis)
-                                                    )
-                                                )
-                                            ),
-                                            e('div', { className:'grid md:grid-cols-2 gap-4 mb-4' },
-                                                e('div', { className:'bg-green-50 border border-green-200 rounded-lg p-4' },
-                                                    e('h5', { className:'text-sm font-semibold text-green-900 mb-2' }, '✅ Human Writing Indicators'),
-                                                    e('ul', { className:'space-y-2' }, ...feedback.ai_detection.human_elements.map((el, i) =>
-                                                        e('li', { key:i, className:'text-sm text-green-800 flex items-start gap-2' }, e('span', null, '•'), e('span', null, el))
-                                                    ))
-                                                ),
-                                                e('div', { className:'bg-red-50 border border-red-200 rounded-lg p-4' },
-                                                    e('h5', { className:'text-sm font-semibold text-red-900 mb-2' }, '⚠️ AI-Like Patterns'),
-                                                    e('ul', { className:'space-y-2' }, ...feedback.ai_detection.ai_elements.map((el, i) =>
-                                                        e('li', { key:i, className:'text-sm text-red-800 flex items-start gap-2' }, e('span', null, '•'), e('span', null, el))
-                                                    ))
-                                                )
-                                            ),
-                                            e('div', { className:'space-y-3 mb-4' },
-                                                e('h5', { className:'text-sm font-semibold text-slate-700' }, 'Pattern Analysis'),
-                                                ...feedback.ai_detection.indicators.map((ind, i) =>
-                                                    e('div', { key:i, className:'bg-slate-50 border border-slate-200 rounded-lg p-3' },
-                                                        e('div', { className:'flex items-center justify-between mb-1' },
-                                                            e('span', { className:'text-sm font-medium text-slate-900' }, ind.pattern),
-                                                            e('span', { className:`text-xs px-2 py-1 rounded-full ${ind.weight==='strong'?'bg-slate-800 text-white':ind.weight==='moderate'?'bg-slate-600 text-white':'bg-slate-400 text-white'}` }, ind.weight)
-                                                        ),
-                                                        e('p', { className:'text-xs text-slate-600' }, ind.explanation)
-                                                    )
-                                                )
-                                            ),
-                                            e('div', { className:`rounded-lg p-4 ${feedback.ai_detection.likelihood_score > 70 ? 'bg-red-50 border border-red-200' : feedback.ai_detection.likelihood_score > 55 ? 'bg-yellow-50 border border-yellow-200' : 'bg-blue-50 border border-blue-200'}` },
-                                                e('h5', { className:'text-sm font-semibold mb-2' }, (feedback.ai_detection.likelihood_score > 70 ? '🚨' : feedback.ai_detection.likelihood_score > 55 ? '⚡' : 'ℹ️') + ' Recommendation'),
-                                                e('p', { className:'text-sm text-slate-700' }, feedback.ai_detection.recommendation)
-                                            ),
-                                            e('div', { className:'mt-4 p-3 bg-slate-100 border border-slate-300 rounded-lg' },
-                                                e('p', { className:'text-xs text-slate-600 italic' }, e('strong', null, 'Note:'), ' AI detection is not foolproof. This analysis should be considered alongside other assessment methods.')
-                                            )
-                                        ),
-
-                                        // Next steps
-                                        e('div', { className:'bg-gradient-to-r from-[#f97316]/10 to-[#ea580c]/10 border border-[#f97316]/20 rounded-lg p-4' },
-                                            e('h4', { className:'text-lg font-semibold text-[#1e3a5f] mb-2' }, '🎯 Next Steps'),
-                                            e('p', { className:'text-sm text-slate-700' }, feedback.next_steps)
-                                        )
-                                    )
-                                  )
-                                : e('div', { className:'bg-white rounded-lg p-12 text-center shadow-lg' },
-                                    e('div', { className:'w-20 h-20 rounded-full bg-[#1e3a5f]/5 flex items-center justify-center mx-auto mb-6' }, e(Lightbulb)),
-                                    e('h3', { className:'text-xl font-semibold text-[#1e3a5f] mb-2' }, 'Your Feedback Will Appear Here'),
-                                    e('p', { className:'text-slate-500 max-w-sm mx-auto' }, 'Submit your rubric and assignment to receive personalized, growth-focused guidance on your work.')
-                                  )
+                    e('p',{style:{fontSize:13,color:'#374151',margin:'0 0 8px'}},feedback.ai_detection.recommendation),
+                    e('p',{style:{fontSize:11,color:'#6b7280',margin:0,fontStyle:'italic'}},
+                        'Note: AI detection is not definitive. This analysis should be considered alongside other evidence.'
                     )
                 )
-            );
-        }
+            ),
 
-        ReactDOM.render(React.createElement(App), document.getElementById('root'));
-    </script>
+            // ── NEXT STEPS TAB ────────────────────────────────────────────────
+            activeTab==='next' && e('div',{className:'fade-up'},
+                e('div',{style:{background:'white',borderRadius:16,padding:20,boxShadow:'0 2px 20px rgba(0,0,0,0.08)'}},
+                    e('h4',{style:{fontFamily:'Sora,sans-serif',fontSize:14,fontWeight:700,color:'#1e3a5f',margin:'0 0 12px'}},'🎯 Your Action Plan'),
+                    e('div',{style:{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(180px,1fr))',gap:10}},
+                        ...(Array.isArray(feedback.next_steps)?feedback.next_steps:feedback.next_steps.split(/\d+\.\s*/).filter(Boolean)).map((step,i)=>
+                            e('div',{key:i,style:{padding:'14px 16px',borderRadius:12,border:'2px solid #e0e7ff',background:'linear-gradient(135deg,#faf5ff,#eff6ff)',position:'relative',overflow:'hidden'}},
+                                e('div',{style:{position:'absolute',top:10,right:12,fontSize:24,fontWeight:800,color:'#e0e7ff',fontFamily:'Sora,sans-serif',lineHeight:1}},i+1),
+                                e('div',{style:{width:30,height:30,borderRadius:'50%',background:'linear-gradient(135deg,#42047e,#6d28d9)',color:'white',display:'flex',alignItems:'center',justifyContent:'center',fontWeight:700,fontSize:14,marginBottom:8,fontFamily:'Sora,sans-serif'}},i+1),
+                                e('p',{style:{fontSize:13,color:'#374151',margin:0,lineHeight:1.5,position:'relative'}},step.trim())
+                            )
+                        )
+                    )
+                )
+            )
+        ),
+
+        // ── EMPTY STATE ───────────────────────────────────────────────────────
+        !hasFeedback && !isAnalyzing && e('div',{style:{textAlign:'center',padding:'20px 20px 60px',color:'rgba(255,255,255,0.3)',fontSize:14}},
+            '↑ Fill in your rubric and assignment above to get started'
+        )
+    );
+}
+
+ReactDOM.render(React.createElement(App), document.getElementById('root'));
+</script>
 </body>
 </html>
