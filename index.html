@@ -5,9 +5,14 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>The Teachers Desk</title>
     <link rel="icon" type="image/png" href="favicon.png">
-    <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
-    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.development.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <script>
+        window.onerror = function(msg, src, line, col, err) {
+            document.getElementById('root').innerHTML = '<div style="padding:40px;font-family:sans-serif;color:#c00"><h2>Script Error</h2><pre style="background:#fee;padding:16px;border-radius:8px;white-space:pre-wrap">' + msg + '\n\nFile: ' + src + '\nLine: ' + line + (err ? '\n\n' + err.stack : '') + '</pre></div>';
+        };
+    </script>
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
         tailwind.config = {
@@ -37,7 +42,7 @@
     </style>
 </head>
 <body>
-    <div id="root"></div>
+    <div id="root"><div style="display:flex;align-items:center;justify-content:center;height:100vh;font-family:sans-serif;color:#555;font-size:18px">Loading The Teachers Desk...</div></div>
 
     <script type="text/babel">
         // Configure PDF.js worker
@@ -585,7 +590,7 @@ Return ONLY valid JSON in this exact format (no markdown, no code fences):
                             location: `Paragraph ${firstExample.paraNum || '?'}${introMatches.length > 1 ? ` (${introMatches.length} instances found)` : ''}`,
                             context: `"${firstExample.context}"`,
                             explanation: "Commas after introductory transitions are standard in academic writing. Missing them looks informal or rushed",
-                            impact: "LOW-MEDIUM - Each instance is minor, but ${introMatches.length} errors accumulate. Together they reduce your Mechanics score by 3-5%. Easy fix with high return",
+                            impact: `LOW-MEDIUM - Each instance is minor, but ${introMatches.length} errors accumulate. Together they reduce your Mechanics score by 3-5%. Easy fix with high return`,
                             rubric_impact: "Affects 'Conventions', 'Mechanics', or 'Grammar' rubric sections"
                         });
                     }
@@ -1860,7 +1865,34 @@ This is where you'll add the work you want feedback on. The more complete your s
             );
         }
 
-        ReactDOM.render(<App />, document.getElementById('root'));
+        class ErrorBoundary extends React.Component {
+            constructor(props) { super(props); this.state = { error: null }; }
+            static getDerivedStateFromError(error) { return { error }; }
+            render() {
+                if (this.state.error) {
+                    return (
+                        <div style={{padding:'40px',fontFamily:'sans-serif',color:'#c00'}}>
+                            <h2>Something went wrong</h2>
+                            <pre style={{background:'#fee',padding:'16px',borderRadius:'8px',whiteSpace:'pre-wrap'}}>
+                                {this.state.error.toString()}
+                                {'\n\n'}
+                                {this.state.error.stack}
+                            </pre>
+                        </div>
+                    );
+                }
+                return this.props.children;
+            }
+        }
+
+        try {
+            ReactDOM.render(
+                <ErrorBoundary><App /></ErrorBoundary>,
+                document.getElementById('root')
+            );
+        } catch(e) {
+            document.getElementById('root').innerHTML = '<div style="padding:40px;font-family:sans-serif;color:#c00"><h2>Render Error</h2><pre style="background:#fee;padding:16px;border-radius:8px;white-space:pre-wrap">' + e.toString() + '\n\n' + e.stack + '</pre></div>';
+        }
     </script>
 </body>
 </html>
