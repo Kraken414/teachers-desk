@@ -91,7 +91,9 @@
 </div>
 
 <script>
-pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+window.addEventListener('load', function() {
+try {
+if (typeof pdfjsLib !== 'undefined') pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
 const { useState } = React;
 const e = React.createElement;
 
@@ -866,7 +868,7 @@ function App() {
                                 )
                             ),
                             e('p',{style:{fontSize:13,color:'#374151',margin:'0 0 10px',lineHeight:1.5}},feedback.ai_detection.analysis),
-                            e('div',{style:{display:'flex',gap:8'}},
+                            e('div',{style:{display:'flex',gap:8}},
                                 e('div',{style:{flex:1,padding:'8px 10px',background:'#f0fdf4',borderRadius:8,border:'1px solid #bbf7d0'}},
                                     e('div',{style:{fontSize:10,fontWeight:700,color:'#065f46',marginBottom:4,textTransform:'uppercase',letterSpacing:'0.05em'}},'✅ Human signals'),
                                     e('ul',{style:{margin:0,paddingLeft:14}},
@@ -926,6 +928,10 @@ function App() {
 }
 
 ReactDOM.render(React.createElement(App), document.getElementById('root'));
+} catch(err) {
+  document.getElementById('root').innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:100vh;color:white;font-family:sans-serif;text-align:center;padding:20px"><div><h2 style="margin:0 0 10px">Failed to start</h2><p style="color:rgba(255,255,255,0.6);font-size:14px">'+err.message+'</p></div></div>';
+}
+});
 </script>
 </body>
 </html>
