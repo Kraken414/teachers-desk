@@ -921,8 +921,264 @@ function App() {
         ),
 
         // ── EMPTY STATE ───────────────────────────────────────────────────────
-        !hasFeedback && !isAnalyzing && e('div',{style:{textAlign:'center',padding:'20px 20px 60px',color:'rgba(255,255,255,0.3)',fontSize:14}},
+        !hasFeedback && !isAnalyzing && e('div',{style:{textAlign:'center',padding:'20px 20px 40px',color:'rgba(255,255,255,0.3)',fontSize:14}},
             '↑ Fill in your rubric and assignment above to get started'
+        ),
+
+        // ── FEEDBACK SECTION ─────────────────────────────────────────────────
+        e(FeedbackSection)
+    );
+}
+
+// ── Feedback Section ──────────────────────────────────────────────────────────
+function FeedbackSection() {
+    const [name, setName] = useState('');
+    const [rating, setRating] = useState(null);
+    const [message, setMessage] = useState('');
+    const [submitted, setSubmitted] = useState(false);
+    const [submitting, setSubmitting] = useState(false);
+    const [allFeedback, setAllFeedback] = useState([]);
+    const [showAll, setShowAll] = useState(false);
+    const [loaded, setLoaded] = useState(false);
+
+    React.useEffect(() => { loadFeedback(); }, []);
+
+    const loadFeedback = async () => {
+        try {
+            const result = await window.storage.list('fb:', true);
+            if (result && result.keys && result.keys.length > 0) {
+                const items = await Promise.all(result.keys.map(async k => {
+                    try { const r = await window.storage.get(k, true); return r ? JSON.parse(r.value) : null; } catch { return null; }
+                }));
+                setAllFeedback(items.filter(Boolean).sort((a,b) => b.ts - a.ts));
+            }
+        } catch(err) { /* storage unavailable */ }
+        setLoaded(true);
+    };
+
+    const handleSubmit = async () => {
+        if (!rating || submitting) return;
+        setSubmitting(true);
+        const entry = {
+            id: Date.now(),
+            ts: Date.now(),
+            name: name.trim() || 'Anonymous',
+            rating,
+            message: message.trim(),
+            date: new Date().toLocaleDateString('en-US', {month:'short', day:'numeric', year:'numeric'})
+        };
+        try { await window.storage.set('fb:' + entry.id, JSON.stringify(entry), true); } catch(err) {}
+        setAllFeedback(prev => [entry, ...prev]);
+        setSubmitted(true);
+        setSubmitting(false);
+    };
+
+    const ratings = [
+        {id:'love',   emoji:'😍', label:'Love it!',   color:'#22c55e', bg:'#f0fdf4', border:'#86efac'},
+        {id:'like',   emoji:'👍', label:'Pretty good', color:'#3b82f6', bg:'#eff6ff', border:'#93c5fd'},
+        {id:'meh',    emoji:'😐', label:"It's okay",   color:'#f59e0b', bg:'#fffbeb', border:'#fcd34d'},
+        {id:'dislike',emoji:'👎', label:'Needs work',  color:'#ef4444', bg:'#fff5f5', border:'#fca5a5'}
+    ];
+    const ratingMap = Object.fromEntries(ratings.map(r=>[r.id,r]));
+
+    return e('div', {style:{maxWidth:900, margin:'0 auto 0', padding:'0 20px 70px'}},
+
+        // Divider
+        e('div',{style:{height:1,background:'linear-gradient(90deg,transparent,rgba(255,255,255,0.12),transparent)',margin:'20px 0 40px'}}),
+
+        // Header
+        e('div',{style:{textAlign:'center',marginBottom:28}},
+            e('div',{style:{display:'inline-flex',alignItems:'center',gap:6,background:'rgba(255,255,255,0.07)',border:'1px solid rgba(255,255,255,0.13)',borderRadius:999,padding:'4px 14px',color:'#07f49e',fontSize:11,fontWeight:700,letterSpacing:'0.07em',textTransform:'uppercase',marginBottom:12}},
+                '💬  Share Your Thoughts'
+            ),
+            e('h2',{style:{fontFamily:'Sora,sans-serif',fontSize:'clamp(1.4rem,3vw,1.9rem)',fontWeight:800,color:'white',margin:'0 0 8px',lineHeight:1.2}},
+                'Help Make This Better'
+            ),
+            e('p',{style:{color:'rgba(255,255,255,0.45)',fontSize:14,margin:0,lineHeight:1.5}},
+                'Take 30 seconds to share what you think — your input directly shapes what gets built next.'
+            )
+        ),
+
+        // Two-column layout
+        e('div',{style:{display:'grid',gridTemplateColumns:'1fr 1fr',gap:16,alignItems:'start'}},
+
+            // ── LEFT: Submit form ─────────────────────────────────────────────
+            e('div',{style:{background:'rgba(255,255,255,0.97)',borderRadius:20,padding:26,boxShadow:'0 24px 60px rgba(0,0,0,0.4)'}},
+
+                submitted
+                // Success state
+                ? e('div',{style:{textAlign:'center',padding:'24px 0'}},
+                    e('div',{style:{fontSize:52,marginBottom:10,lineHeight:1}},'🙌'),
+                    e('h3',{style:{fontFamily:'Sora,sans-serif',fontSize:17,fontWeight:800,color:'#1e3a5f',margin:'0 0 8px'}},
+                        'Thank you!'
+                    ),
+                    e('p',{style:{fontSize:13,color:'#6b7280',lineHeight:1.6,margin:'0 0 20px'}},
+                        'Your feedback has been saved and will help improve the experience for everyone.'
+                    ),
+                    e('button',{
+                        onClick:()=>{setSubmitted(false);setRating(null);setMessage('');setName('');},
+                        style:{padding:'9px 22px',background:'linear-gradient(135deg,#42047e,#6d28d9)',border:'none',borderRadius:10,color:'white',fontSize:13,fontWeight:700,cursor:'pointer',fontFamily:'Sora,sans-serif'}
+                    },'Submit Another')
+                  )
+
+                // Form state
+                : e('div',null,
+                    e('h3',{style:{fontFamily:'Sora,sans-serif',fontSize:15,fontWeight:800,color:'#1e3a5f',margin:'0 0 20px'}},
+                        'Your Feedback'
+                    ),
+
+                    // Name
+                    e('div',{style:{marginBottom:16}},
+                        e('label',{style:{display:'block',fontSize:11,fontWeight:700,color:'#374151',marginBottom:6,textTransform:'uppercase',letterSpacing:'0.05em'}},
+                            'Name (optional)'
+                        ),
+                        e('input',{
+                            type:'text',
+                            placeholder:'Leave blank to stay anonymous',
+                            value:name,
+                            onChange:ev=>setName(ev.target.value),
+                            maxLength:50,
+                            style:{width:'100%',padding:'9px 12px',border:'1.5px solid #e5e7eb',borderRadius:10,fontSize:13,color:'#374151',fontFamily:'DM Sans,sans-serif',background:'#fafafa',outline:'none',boxSizing:'border-box',transition:'border-color 0.15s'}
+                        })
+                    ),
+
+                    // Rating buttons
+                    e('div',{style:{marginBottom:16}},
+                        e('label',{style:{display:'block',fontSize:11,fontWeight:700,color:'#374151',marginBottom:8,textTransform:'uppercase',letterSpacing:'0.05em'}},
+                            'Overall Impression *'
+                        ),
+                        e('div',{style:{display:'grid',gridTemplateColumns:'1fr 1fr',gap:8}},
+                            ...ratings.map(r =>
+                                e('button',{
+                                    key:r.id,
+                                    onClick:()=>setRating(r.id),
+                                    style:{
+                                        padding:'11px 10px',
+                                        border: `2px solid ${rating===r.id ? r.color : '#e5e7eb'}`,
+                                        borderRadius:11,
+                                        background: rating===r.id ? r.bg : 'white',
+                                        cursor:'pointer',
+                                        display:'flex',alignItems:'center',justifyContent:'center',gap:7,
+                                        fontSize:13,fontWeight:700,
+                                        color: rating===r.id ? r.color : '#9ca3af',
+                                        transition:'all 0.15s',
+                                        fontFamily:'DM Sans,sans-serif',
+                                        transform: rating===r.id ? 'scale(1.03)' : 'scale(1)'
+                                    }
+                                },
+                                    e('span',{style:{fontSize:20}},r.emoji), r.label
+                                )
+                            )
+                        )
+                    ),
+
+                    // Message
+                    e('div',{style:{marginBottom:20}},
+                        e('label',{style:{display:'block',fontSize:11,fontWeight:700,color:'#374151',marginBottom:6,textTransform:'uppercase',letterSpacing:'0.05em'}},
+                            'Comments or Suggestions'
+                        ),
+                        e('textarea',{
+                            placeholder:"What do you love? What's confusing? Any features you'd like to see?\n\nAll feedback is welcome!",
+                            value:message,
+                            onChange:ev=>setMessage(ev.target.value),
+                            maxLength:500,
+                            style:{width:'100%',minHeight:100,padding:'9px 12px',border:'1.5px solid #e5e7eb',borderRadius:10,fontSize:13,color:'#374151',fontFamily:'DM Sans,sans-serif',resize:'vertical',background:'#fafafa',outline:'none',lineHeight:1.6,boxSizing:'border-box'}
+                        }),
+                        e('div',{style:{textAlign:'right',fontSize:11,color:'#d1d5db',marginTop:3}},
+                            `${message.length}/500`
+                        )
+                    ),
+
+                    // Submit button
+                    e('button',{
+                        onClick:handleSubmit,
+                        disabled:!rating||submitting,
+                        style:{
+                            width:'100%',padding:'12px',border:'none',borderRadius:11,
+                            background: rating ? 'linear-gradient(135deg,#42047e,#07f49e)' : '#e5e7eb',
+                            color:'white',fontSize:14,fontWeight:700,
+                            cursor: rating ? 'pointer' : 'not-allowed',
+                            fontFamily:'Sora,sans-serif',
+                            transition:'all 0.2s',
+                            opacity: submitting ? 0.7 : 1
+                        }
+                    },
+                        submitting
+                        ? e('span',{style:{display:'flex',alignItems:'center',justifyContent:'center',gap:8}},
+                            e('div',{style:{width:16,height:16,border:'2px solid rgba(255,255,255,0.3)',borderTopColor:'white',borderRadius:'50%',animation:'spin 0.7s linear infinite'}}),
+                            'Submitting…'
+                          )
+                        : 'Submit Feedback ✨'
+                    ),
+                    !rating && e('p',{style:{textAlign:'center',fontSize:11,color:'#d1d5db',margin:'7px 0 0'}},
+                        'Select a rating above to continue'
+                    )
+                  )
+            ),
+
+            // ── RIGHT: Community feed ─────────────────────────────────────────
+            e('div',{style:{background:'rgba(255,255,255,0.97)',borderRadius:20,padding:26,boxShadow:'0 24px 60px rgba(0,0,0,0.4)'}},
+
+                // Header row
+                e('div',{style:{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:16}},
+                    e('h3',{style:{fontFamily:'Sora,sans-serif',fontSize:15,fontWeight:800,color:'#1e3a5f',margin:0}},
+                        'Community Feedback'
+                    ),
+                    loaded && e('span',{style:{fontSize:12,color:'#6b7280',background:'#f3f4f6',padding:'3px 10px',borderRadius:999,fontWeight:700}},
+                        allFeedback.length > 0 ? `${allFeedback.length} review${allFeedback.length!==1?'s':''}` : 'No reviews yet'
+                    )
+                ),
+
+                // Rating summary
+                allFeedback.length > 0 && e('div',{style:{background:'#f8fafc',borderRadius:12,padding:'12px 8px',marginBottom:16,display:'grid',gridTemplateColumns:'repeat(4,1fr)',gap:4}},
+                    ...ratings.map(r => {
+                        const count = allFeedback.filter(f=>f.rating===r.id).length;
+                        const pct = Math.round((count/allFeedback.length)*100);
+                        return e('div',{key:r.id,style:{textAlign:'center',padding:'4px 0'}},
+                            e('div',{style:{fontSize:22,lineHeight:1.2}},r.emoji),
+                            e('div',{style:{fontSize:16,fontWeight:800,color:r.color,lineHeight:1.2}},count),
+                            e('div',{style:{fontSize:9,color:'#9ca3af',fontWeight:700,textTransform:'uppercase',letterSpacing:'0.04em',marginTop:1}},r.label),
+                            count > 0 && e('div',{style:{height:3,background:r.border,borderRadius:99,margin:'4px 6px 0'}})
+                        );
+                    })
+                ),
+
+                // Feed list
+                !loaded
+                    ? e('div',{style:{textAlign:'center',padding:'30px',color:'#9ca3af',fontSize:13}},
+                        'Loading reviews…'
+                      )
+                    : allFeedback.length === 0
+                        ? e('div',{style:{textAlign:'center',padding:'36px 20px'}},
+                            e('div',{style:{fontSize:40,marginBottom:10}},'💭'),
+                            e('p',{style:{fontSize:14,fontWeight:700,color:'#374151',margin:'0 0 4px'}},'No feedback yet'),
+                            e('p',{style:{fontSize:12,color:'#9ca3af',margin:0}},'Be the first to share your thoughts!')
+                          )
+                        : e('div',null,
+                            e('div',{style:{display:'flex',flexDirection:'column',gap:8,maxHeight:320,overflowY:'auto',paddingRight:2}},
+                                ...(showAll ? allFeedback : allFeedback.slice(0,4)).map((fb,i) => {
+                                    const r = ratingMap[fb.rating];
+                                    return e('div',{key:i,style:{padding:'11px 13px',background:'#f8fafc',borderRadius:11,border:'1px solid #f1f5f9',borderLeft:`3px solid ${r?r.color:'#e5e7eb'}`}},
+                                        e('div',{style:{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:fb.message?5:0}},
+                                            e('div',{style:{display:'flex',alignItems:'center',gap:7}},
+                                                e('span',{style:{fontSize:16}},r?r.emoji:'💬'),
+                                                e('span',{style:{fontWeight:700,fontSize:13,color:'#1e3a5f'}},fb.name),
+                                                r && e('span',{style:{fontSize:10,fontWeight:700,color:r.color,background:r.bg,padding:'1px 7px',borderRadius:999}},r.label)
+                                            ),
+                                            e('span',{style:{fontSize:11,color:'#9ca3af',whiteSpace:'nowrap'}},fb.date)
+                                        ),
+                                        fb.message && e('p',{style:{fontSize:12,color:'#4b5563',margin:0,lineHeight:1.55,paddingLeft:23}},
+                                            '"',fb.message,'"'
+                                        )
+                                    );
+                                })
+                            ),
+                            allFeedback.length > 4 && e('button',{
+                                onClick:()=>setShowAll(!showAll),
+                                style:{width:'100%',marginTop:10,padding:'8px',border:'1.5px solid #e5e7eb',borderRadius:9,background:'white',color:'#6b7280',fontSize:12,fontWeight:700,cursor:'pointer',fontFamily:'DM Sans,sans-serif',transition:'all 0.15s'}
+                            }, showAll ? '↑ Show less' : `↓ Show ${allFeedback.length-4} more`)
+                          )
+            )
         )
     );
 }
