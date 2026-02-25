@@ -931,30 +931,33 @@ function App() {
 }
 
 // ── Feedback Section ──────────────────────────────────────────────────────────
+const STORAGE_KEY = 'teachers_desk_feedback_v1';
+
+function loadFromStorage() {
+    try {
+        const raw = localStorage.getItem(STORAGE_KEY);
+        return raw ? JSON.parse(raw) : [];
+    } catch(e) { return []; }
+}
+
+function saveToStorage(entries) {
+    try { localStorage.setItem(STORAGE_KEY, JSON.stringify(entries)); } catch(e) {}
+}
+
+// ── Optional: paste your Google Forms prefilled URL here so feedback
+// also emails you. Leave as null to skip. See README for setup steps.
+// Example: 'https://docs.google.com/forms/d/e/YOUR_FORM_ID/formResponse'
+const GOOGLE_FORM_URL = null;
+const GFORM_FIELDS = { name: 'entry.000000001', rating: 'entry.000000002', message: 'entry.000000003' };
+
 function FeedbackSection() {
     const [name, setName] = useState('');
     const [rating, setRating] = useState(null);
     const [message, setMessage] = useState('');
     const [submitted, setSubmitted] = useState(false);
     const [submitting, setSubmitting] = useState(false);
-    const [allFeedback, setAllFeedback] = useState([]);
+    const [allFeedback, setAllFeedback] = useState(() => loadFromStorage());
     const [showAll, setShowAll] = useState(false);
-    const [loaded, setLoaded] = useState(false);
-
-    React.useEffect(() => { loadFeedback(); }, []);
-
-    const loadFeedback = async () => {
-        try {
-            const result = await window.storage.list('fb:', true);
-            if (result && result.keys && result.keys.length > 0) {
-                const items = await Promise.all(result.keys.map(async k => {
-                    try { const r = await window.storage.get(k, true); return r ? JSON.parse(r.value) : null; } catch { return null; }
-                }));
-                setAllFeedback(items.filter(Boolean).sort((a,b) => b.ts - a.ts));
-            }
-        } catch(err) { /* storage unavailable */ }
-        setLoaded(true);
-    };
 
     const handleSubmit = async () => {
         if (!rating || submitting) return;
@@ -967,8 +970,23 @@ function FeedbackSection() {
             message: message.trim(),
             date: new Date().toLocaleDateString('en-US', {month:'short', day:'numeric', year:'numeric'})
         };
-        try { await window.storage.set('fb:' + entry.id, JSON.stringify(entry), true); } catch(err) {}
-        setAllFeedback(prev => [entry, ...prev]);
+
+        // Save to localStorage — persists across reloads forever
+        const updated = [entry, ...loadFromStorage()];
+        saveToStorage(updated);
+        setAllFeedback(updated);
+
+        // Optionally also POST to Google Forms (no CORS issues — fire and forget)
+        if (GOOGLE_FORM_URL) {
+            try {
+                const body = new URLSearchParams();
+                body.append(GFORM_FIELDS.name, entry.name);
+                body.append(GFORM_FIELDS.rating, entry.rating);
+                body.append(GFORM_FIELDS.message, entry.message);
+                fetch(GOOGLE_FORM_URL, { method:'POST', mode:'no-cors', body });
+            } catch(e) {}
+        }
+
         setSubmitted(true);
         setSubmitting(false);
     };
@@ -1124,7 +1142,7 @@ function FeedbackSection() {
                     e('h3',{style:{fontFamily:'Sora,sans-serif',fontSize:15,fontWeight:800,color:'#1e3a5f',margin:0}},
                         'Community Feedback'
                     ),
-                    loaded && e('span',{style:{fontSize:12,color:'#6b7280',background:'#f3f4f6',padding:'3px 10px',borderRadius:999,fontWeight:700}},
+                    e('span',{style:{fontSize:12,color:'#6b7280',background:'#f3f4f6',padding:'3px 10px',borderRadius:999,fontWeight:700}},
                         allFeedback.length > 0 ? `${allFeedback.length} review${allFeedback.length!==1?'s':''}` : 'No reviews yet'
                     )
                 ),
@@ -1144,11 +1162,7 @@ function FeedbackSection() {
                 ),
 
                 // Feed list
-                !loaded
-                    ? e('div',{style:{textAlign:'center',padding:'30px',color:'#9ca3af',fontSize:13}},
-                        'Loading reviews…'
-                      )
-                    : allFeedback.length === 0
+                allFeedback.length === 0
                         ? e('div',{style:{textAlign:'center',padding:'36px 20px'}},
                             e('div',{style:{fontSize:40,marginBottom:10}},'💭'),
                             e('p',{style:{fontSize:14,fontWeight:700,color:'#374151',margin:'0 0 4px'}},'No feedback yet'),
