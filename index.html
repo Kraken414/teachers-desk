@@ -14,6 +14,7 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.6.0/mammoth.browser.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <style>
         * { box-sizing: border-box; }
         body { margin: 0; font-family: 'DM Sans', sans-serif; -webkit-font-smoothing: antialiased; background: #0f0f1a; }
@@ -251,7 +252,7 @@ const AiIndicatorRow = ({ind}) => {
 };
 
 // ── Main App ──────────────────────────────────────────────────────────────────
-function App() {
+function App({ currentUser, onLogout }) {
     const [rubric, setRubric] = useState('');
     const [assignment, setAssignment] = useState('');
     const [feedback, setFeedback] = useState(null);
@@ -260,6 +261,34 @@ function App() {
     const [assignmentFile, setAssignmentFile] = useState(null);
     const [assignmentPreview, setAssignmentPreview] = useState(null);
     const [activeTab, setActiveTab] = useState('overview');
+    const [showSaved, setShowSaved] = useState(false);
+    const [saveMsg, setSaveMsg] = useState('');
+
+    // ── Save to Supabase ───────────────────────────────────────────────────────
+    const handleSave = async () => {
+        if (!feedback || !currentUser) return;
+        const label = (rubric.substring(0,40)||'Untitled').trim();
+        const score = feedback.score_estimate ? feedback.score_estimate.overall : null;
+        const { error } = await sb.from('saved_work').insert({
+            user_id: currentUser.id,
+            label,
+            score,
+            rubric_text: rubric,
+            assignment_text: assignment,
+            feedback_json: JSON.stringify(feedback),
+            saved_at: new Date().toISOString()
+        });
+        if (error) { setSaveMsg('Could not save. Check your Supabase table setup.'); }
+        else { setSaveMsg('Saved!'); }
+        setTimeout(() => setSaveMsg(''), 3000);
+    };
+
+    const handleLoadWork = (item) => {
+        setRubric(item.rubric_text || '');
+        setAssignment(item.assignment_text || '');
+        try { setFeedback(JSON.parse(item.feedback_json)); } catch {}
+        setShowSaved(false);
+    };
 
     // ── File upload ────────────────────────────────────────────────────────────
     const handleFileUpload = async (file, type) => {
@@ -644,6 +673,14 @@ function App() {
             )
         ),
 
+        // ── User bar ──────────────────────────────────────────────────────────────
+        currentUser && e('div',{style:{display:'flex',alignItems:'center',justifyContent:'center',gap:10,marginTop:16,flexWrap:'wrap'}},
+            e('span',{style:{color:'rgba(255,255,255,0.5)',fontSize:13}},'Signed in as '),
+            e('span',{style:{color:'white',fontWeight:700,fontSize:13}}, currentUser.displayName),
+            e('button',{onClick:()=>setShowSaved(true),style:{background:'rgba(7,244,158,0.12)',border:'1px solid rgba(7,244,158,0.3)',color:'#07f49e',borderRadius:8,padding:'5px 14px',cursor:'pointer',fontSize:12,fontWeight:700,fontFamily:'DM Sans,sans-serif'}},'My Saved Work'),
+            e('button',{onClick:onLogout,style:{background:'rgba(255,255,255,0.08)',border:'1px solid rgba(255,255,255,0.15)',color:'rgba(255,255,255,0.6)',borderRadius:8,padding:'5px 14px',cursor:'pointer',fontSize:12,fontFamily:'DM Sans,sans-serif'}},'Sign Out')
+        ),
+
         // ── INPUT SECTION ─────────────────────────────────────────────────────
         e('div',{style:{maxWidth:900,margin:'0 auto 40px',padding:'0 20px'}},
             e('div',{style:{background:'rgba(255,255,255,0.97)',borderRadius:20,padding:28,boxShadow:'0 20px 60px rgba(0,0,0,0.4)'}},
@@ -732,6 +769,15 @@ function App() {
                 e('div',{style:{display:'flex',alignItems:'center',justifyContent:'center',gap:6,marginTop:12,fontSize:12,color:'#9ca3af'}},
                     e('div',{style:{width:6,height:6,borderRadius:'50%',background:'#22c55e'}}),
                     'Your work is never saved or shared'
+                ),
+
+                // Save results button (shows after analysis)
+                feedback && e('div',{style:{display:'flex',alignItems:'center',justifyContent:'center',gap:10,marginTop:14}},
+                    e('button',{
+                        onClick:handleSave,
+                        style:{padding:'10px 24px',border:'none',borderRadius:10,background:'linear-gradient(135deg,#065f46,#059669)',color:'white',fontSize:14,fontWeight:700,fontFamily:'Sora,sans-serif',cursor:'pointer',boxShadow:'0 4px 12px rgba(5,150,105,0.4)'}
+                    },'Save Results'),
+                    saveMsg && e('span',{style:{fontSize:13,color:'#07f49e',fontWeight:700}}, saveMsg)
                 )
             )
         ),
@@ -1197,7 +1243,228 @@ function FeedbackSection() {
     );
 }
 
-ReactDOM.render(React.createElement(App), document.getElementById('root'));
+// ── Supabase setup ────────────────────────────────────────────────────────────
+const SUPABASE_URL = 'https://lojtpxntzggdcskfvkcr.supabase.co';
+const SUPABASE_KEY = 'sb_publishable_umTxhscSsyJXNmN1cgODVg_tOjc_wEK';
+const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+// ── Shared input style helper ─────────────────────────────────────────────────
+const authInp = (placeholder, value, onChange, type, onKey) =>
+    e('input', {
+        type: type||'text', placeholder, value,
+        onChange: ev => onChange(ev.target.value),
+        onKeyDown: onKey||undefined,
+        style: {
+            width:'100%', padding:'13px 16px',
+            background:'rgba(255,255,255,0.07)',
+            border:'1.5px solid rgba(255,255,255,0.15)',
+            borderRadius:12, color:'white', fontSize:14,
+            fontFamily:'DM Sans,sans-serif', outline:'none',
+            boxSizing:'border-box',
+        }
+    });
+
+// ── Shared card shell ─────────────────────────────────────────────────────────
+const AuthCard = ({children}) => e('div',{style:{minHeight:'100vh',display:'flex',alignItems:'center',justifyContent:'center',padding:'20px'}},
+    e('div',{style:{width:'100%',maxWidth:420,background:'rgba(255,255,255,0.06)',backdropFilter:'blur(20px)',border:'1px solid rgba(255,255,255,0.13)',borderRadius:24,padding:'44px 40px 36px',boxShadow:'0 32px 80px rgba(0,0,0,0.5)'}},
+        // Logo
+        e('div',{style:{textAlign:'center',marginBottom:32}},
+            e('div',{style:{width:62,height:62,borderRadius:18,background:'linear-gradient(135deg,#42047e,#07f49e)',display:'flex',alignItems:'center',justifyContent:'center',fontSize:28,margin:'0 auto 16px',boxShadow:'0 8px 24px rgba(66,4,126,0.5)'}},'📚'),
+            e('h1',{style:{fontFamily:'Sora,sans-serif',fontSize:22,fontWeight:800,color:'white',margin:'0 0 6px'}},"The Teacher's Desk"),
+        ),
+        ...children
+    )
+);
+
+const AuthLabel = (text) => e('label',{style:{display:'block',fontSize:11,fontWeight:700,color:'rgba(255,255,255,0.6)',textTransform:'uppercase',letterSpacing:'0.06em',marginBottom:6}},text);
+const AuthErr = (msg) => msg && e('div',{style:{background:'rgba(239,68,68,0.15)',border:'1px solid rgba(239,68,68,0.4)',borderRadius:10,padding:'10px 14px',marginBottom:16,color:'#fca5a5',fontSize:13,textAlign:'center'}},msg);
+const AuthSuccess = (msg) => msg && e('div',{style:{background:'rgba(7,244,158,0.12)',border:'1px solid rgba(7,244,158,0.35)',borderRadius:10,padding:'10px 14px',marginBottom:16,color:'#07f49e',fontSize:13,textAlign:'center'}},msg);
+const AuthBtn = (label, onClick, loading, disabled) => e('button',{onClick,disabled:loading||disabled,style:{width:'100%',padding:'14px',border:'none',borderRadius:13,background:(loading||disabled)?'#374151':'linear-gradient(135deg,#42047e,#07f49e)',color:'white',fontSize:15,fontWeight:700,fontFamily:'Sora,sans-serif',cursor:(loading||disabled)?'not-allowed':'pointer',opacity:loading?0.75:1,transition:'all 0.2s',boxShadow:'0 6px 20px rgba(66,4,126,0.4)'}},
+    loading ? e('span',{style:{display:'flex',alignItems:'center',justifyContent:'center',gap:8}},
+        e('div',{style:{width:16,height:16,border:'2px solid rgba(255,255,255,0.3)',borderTopColor:'white',borderRadius:'50%',animation:'spin 0.7s linear infinite'}}), 'Please wait…') : label
+);
+
+// ── Login Screen ──────────────────────────────────────────────────────────────
+function LoginScreen({ onLogin, onGoSignup }) {
+    const [email, setEmail] = useState('');
+    const [password, setPassword] = useState('');
+    const [showPass, setShowPass] = useState(false);
+    const [error, setError] = useState('');
+    const [loading, setLoading] = useState(false);
+
+    const handleLogin = async () => {
+        setError('');
+        if (!email.trim() || !password.trim()) { setError('Please fill in all fields.'); return; }
+        setLoading(true);
+        try {
+            const { data, error: err } = await sb.auth.signInWithPassword({ email: email.trim(), password });
+            if (err) { setError(err.message || 'Incorrect email or password.'); setLoading(false); return; }
+            const displayName = (data.user.user_metadata && data.user.user_metadata.display_name) ? data.user.user_metadata.display_name : email.split('@')[0];
+            onLogin(data.user.id, displayName, data.user.email);
+        } catch(ex) { setError('Something went wrong. Please try again.'); setLoading(false); }
+    };
+
+    const onKey = ev => { if (ev.key==='Enter') handleLogin(); };
+
+    return e(AuthCard,{children:[
+        e('p',{style:{color:'rgba(255,255,255,0.5)',fontSize:13,margin:'-20px 0 24px',textAlign:'center'}},'Sign in to your account'),
+        e('div',{style:{marginBottom:14}}, AuthLabel('Email'), authInp('Enter your email', email, setEmail, 'email', onKey)),
+        e('div',{style:{marginBottom:20,position:'relative'}},
+            AuthLabel('Password'),
+            authInp('Enter your password', password, setPassword, showPass?'text':'password', onKey),
+            e('button',{onClick:()=>setShowPass(!showPass),style:{position:'absolute',right:14,bottom:13,background:'none',border:'none',color:'rgba(255,255,255,0.45)',cursor:'pointer',fontSize:13,fontFamily:'DM Sans,sans-serif',padding:0}}, showPass?'Hide':'Show')
+        ),
+        AuthErr(error),
+        AuthBtn('Sign In \u2192', handleLogin, loading),
+        e('p',{style:{textAlign:'center',color:'rgba(255,255,255,0.4)',fontSize:13,marginTop:20,marginBottom:0}},
+            "Don't have an account? ",
+            e('button',{onClick:onGoSignup,style:{background:'none',border:'none',color:'#07f49e',fontWeight:700,fontSize:13,cursor:'pointer',fontFamily:'DM Sans,sans-serif',padding:0}},'Create one')
+        ),
+    ]});
+}
+
+// ── Sign-Up Screen ────────────────────────────────────────────────────────────
+function SignupScreen({ onGoLogin, onSignedUp }) {
+    const [displayName, setDisplayName] = useState('');
+    const [email, setEmail] = useState('');
+    const [password, setPassword] = useState('');
+    const [confirm, setConfirm] = useState('');
+    const [showPass, setShowPass] = useState(false);
+    const [error, setError] = useState('');
+    const [success, setSuccess] = useState('');
+    const [loading, setLoading] = useState(false);
+
+    const handleSignup = async () => {
+        setError(''); setSuccess('');
+        if (!displayName.trim()||!email.trim()||!password||!confirm) { setError('Please fill in all fields.'); return; }
+        if (password.length < 6) { setError('Password must be at least 6 characters.'); return; }
+        if (password !== confirm) { setError('Passwords do not match.'); return; }
+        setLoading(true);
+        try {
+            const { data, error: err } = await sb.auth.signUp({
+                email: email.trim(),
+                password,
+                options: { data: { display_name: displayName.trim() } }
+            });
+            if (err) { setError(err.message || 'Could not create account.'); setLoading(false); return; }
+            setSuccess('Account created! Signing you in...');
+            setTimeout(() => { onSignedUp(data.user.id, displayName.trim(), email.trim()); }, 1000);
+        } catch(ex) { setError('Something went wrong. Please try again.'); setLoading(false); }
+    };
+
+    const onKey = ev => { if (ev.key==='Enter') handleSignup(); };
+
+    return e(AuthCard,{children:[
+        e('p',{style:{color:'rgba(255,255,255,0.5)',fontSize:13,margin:'-20px 0 24px',textAlign:'center'}},'Create your free account'),
+        e('div',{style:{marginBottom:14}}, AuthLabel('Your Name'), authInp('e.g. Ms. Johnson', displayName, setDisplayName, 'text', onKey)),
+        e('div',{style:{marginBottom:14}}, AuthLabel('Email'), authInp('Enter your email address', email, setEmail, 'email', onKey)),
+        e('div',{style:{marginBottom:14,position:'relative'}},
+            AuthLabel('Password'),
+            authInp('At least 6 characters', password, setPassword, showPass?'text':'password', onKey),
+            e('button',{onClick:()=>setShowPass(!showPass),style:{position:'absolute',right:14,bottom:13,background:'none',border:'none',color:'rgba(255,255,255,0.45)',cursor:'pointer',fontSize:13,fontFamily:'DM Sans,sans-serif',padding:0}}, showPass?'Hide':'Show')
+        ),
+        e('div',{style:{marginBottom:20}}, AuthLabel('Confirm Password'), authInp('Re-enter your password', confirm, setConfirm, showPass?'text':'password', onKey)),
+        AuthErr(error),
+        AuthSuccess(success),
+        AuthBtn('Create Account', handleSignup, loading),
+        e('p',{style:{textAlign:'center',color:'rgba(255,255,255,0.4)',fontSize:13,marginTop:20,marginBottom:0}},
+            'Already have an account? ',
+            e('button',{onClick:onGoLogin,style:{background:'none',border:'none',color:'#07f49e',fontWeight:700,fontSize:13,cursor:'pointer',fontFamily:'DM Sans,sans-serif',padding:0}},'Sign in')
+        ),
+    ]});
+}
+
+// ── Saved Work Panel ──────────────────────────────────────────────────────────
+function SavedWorkPanel({ userId, onLoad, onClose }) {
+    const [items, setItems] = useState([]);
+    const [confirmDel, setConfirmDel] = useState(null);
+    const [loadingItems, setLoadingItems] = useState(true);
+
+    React.useEffect(() => {
+        (async () => {
+            const { data } = await sb.from('saved_work').select('*').eq('user_id', userId).order('saved_at', { ascending: false });
+            setItems(data || []);
+            setLoadingItems(false);
+        })();
+    }, [userId]);
+
+    const handleDelete = async (id, idx) => {
+        await sb.from('saved_work').delete().eq('id', id);
+        setItems(items.filter((_,i)=>i!==idx));
+        setConfirmDel(null);
+    };
+
+    return e('div',{style:{position:'fixed',inset:0,background:'rgba(0,0,0,0.7)',backdropFilter:'blur(4px)',zIndex:1000,display:'flex',alignItems:'center',justifyContent:'center',padding:20}},
+        e('div',{style:{width:'100%',maxWidth:560,background:'#1a1a2e',border:'1px solid rgba(255,255,255,0.13)',borderRadius:20,overflow:'hidden',boxShadow:'0 32px 80px rgba(0,0,0,0.6)'}},
+            e('div',{style:{padding:'20px 24px',borderBottom:'1px solid rgba(255,255,255,0.1)',display:'flex',alignItems:'center',justifyContent:'space-between'}},
+                e('h3',{style:{fontFamily:'Sora,sans-serif',color:'white',margin:0,fontSize:17,fontWeight:800}},'My Saved Work'),
+                e('button',{onClick:onClose,style:{background:'rgba(255,255,255,0.08)',border:'none',color:'white',borderRadius:8,padding:'6px 12px',cursor:'pointer',fontSize:13,fontFamily:'DM Sans,sans-serif'}},'Close')
+            ),
+            e('div',{style:{maxHeight:420,overflowY:'auto',padding:'16px 24px'}},
+                loadingItems
+                    ? e('div',{style:{textAlign:'center',padding:'40px 0',color:'rgba(255,255,255,0.4)',fontSize:14}},'Loading...')
+                    : items.length===0
+                        ? e('div',{style:{textAlign:'center',padding:'40px 0'}},
+                            e('p',{style:{color:'rgba(255,255,255,0.4)',fontSize:14,margin:0}},'No saved work yet. Run an analysis and save it!'))
+                        : items.map((item,i) =>
+                            e('div',{key:item.id,style:{background:'rgba(255,255,255,0.05)',border:'1px solid rgba(255,255,255,0.1)',borderRadius:12,padding:'14px 16px',marginBottom:10}},
+                                e('div',{style:{display:'flex',alignItems:'flex-start',justifyContent:'space-between',gap:10}},
+                                    e('div',{style:{flex:1,minWidth:0}},
+                                        e('div',{style:{fontWeight:700,color:'white',fontSize:14,fontFamily:'Sora,sans-serif',marginBottom:3,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}},
+                                            item.label||('Analysis #'+(i+1))
+                                        ),
+                                        e('div',{style:{fontSize:11,color:'rgba(255,255,255,0.4)',marginBottom:6}},
+                                            new Date(item.saved_at).toLocaleString()
+                                        ),
+                                        item.score!=null && e('div',{style:{display:'inline-flex',alignItems:'center',gap:6,background:'rgba(7,244,158,0.12)',border:'1px solid rgba(7,244,158,0.3)',borderRadius:6,padding:'2px 8px'}},
+                                            e('span',{style:{fontSize:12,fontWeight:700,color:'#07f49e'}},'Score: '+item.score+'%')
+                                        )
+                                    ),
+                                    e('div',{style:{display:'flex',gap:6,flexShrink:0}},
+                                        e('button',{onClick:()=>onLoad(item),style:{background:'linear-gradient(135deg,#42047e,#07f49e)',border:'none',color:'white',borderRadius:8,padding:'6px 12px',cursor:'pointer',fontSize:12,fontWeight:700,fontFamily:'DM Sans,sans-serif'}},'Load'),
+                                        confirmDel===i
+                                            ? e('button',{onClick:()=>handleDelete(item.id,i),style:{background:'#ef4444',border:'none',color:'white',borderRadius:8,padding:'6px 10px',cursor:'pointer',fontSize:12,fontWeight:700,fontFamily:'DM Sans,sans-serif'}},'Confirm')
+                                            : e('button',{onClick:()=>setConfirmDel(i),style:{background:'rgba(239,68,68,0.15)',border:'1px solid rgba(239,68,68,0.3)',color:'#fca5a5',borderRadius:8,padding:'6px 10px',cursor:'pointer',fontSize:12,fontFamily:'DM Sans,sans-serif'}},'Delete')
+                                    )
+                                )
+                            )
+                        )
+            )
+        )
+    );
+}
+
+// ── Auth Gate ─────────────────────────────────────────────────────────────────
+function Root() {
+    const [screen, setScreen] = useState('loading');
+    const [currentUser, setCurrentUser] = useState(null);
+
+    React.useEffect(() => {
+        sb.auth.getSession().then(({ data: { session } }) => {
+            if (session) {
+                const displayName = (session.user.user_metadata && session.user.user_metadata.display_name) ? session.user.user_metadata.display_name : session.user.email.split('@')[0];
+                setCurrentUser({ id: session.user.id, displayName, email: session.user.email });
+                setScreen('app');
+            } else {
+                setScreen('login');
+            }
+        });
+        const { data: listener } = sb.auth.onAuthStateChange((_event, session) => {
+            if (!session) { setCurrentUser(null); setScreen('login'); }
+        });
+        return () => listener.subscription.unsubscribe();
+    }, []);
+
+    const handleLogin = (id, displayName, email) => { setCurrentUser({ id, displayName, email }); setScreen('app'); };
+    const handleLogout = async () => { await sb.auth.signOut(); setCurrentUser(null); setScreen('login'); };
+
+    if (screen==='loading') return e('div',{style:{display:'flex',alignItems:'center',justifyContent:'center',height:'100vh',color:'#ccc',fontSize:18}},'Loading...');
+    if (screen==='login') return e(LoginScreen, { onLogin: handleLogin, onGoSignup: ()=>setScreen('signup') });
+    if (screen==='signup') return e(SignupScreen, { onGoLogin: ()=>setScreen('login'), onSignedUp: handleLogin });
+    return e(App, { currentUser, onLogout: handleLogout });
+}
+
+ReactDOM.render(React.createElement(Root), document.getElementById('root'));
 } catch(err) {
   document.getElementById('root').innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:100vh;color:white;font-family:sans-serif;text-align:center;padding:20px"><div><h2 style="margin:0 0 10px">Failed to start</h2><p style="color:rgba(255,255,255,0.6);font-size:14px">'+err.message+'</p></div></div>';
 }
