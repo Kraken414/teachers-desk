@@ -1620,6 +1620,16 @@ function Root() {
     const [currentUser, setCurrentUser] = useState(null);
 
     React.useEffect(() => {
+        // Track anonymous visitors too using a random session ID
+        let anonId = sessionStorage.getItem('tdesk_anon_id');
+        if (!anonId) { anonId = 'anon_' + Math.random().toString(36).substr(2,12); sessionStorage.setItem('tdesk_anon_id', anonId); }
+        sb.from('visitor_presence').upsert({ user_id: anonId, last_seen: new Date().toISOString() }, { onConflict: 'user_id' });
+        if (!window._anonInterval) {
+            window._anonInterval = setInterval(() => {
+                sb.from('visitor_presence').upsert({ user_id: anonId, last_seen: new Date().toISOString() }, { onConflict: 'user_id' });
+            }, 2 * 60 * 1000);
+        }
+
         sb.auth.getSession().then(({ data: { session } }) => {
             if (session) {
                 const displayName = (session.user.user_metadata && session.user.user_metadata.display_name) ? session.user.user_metadata.display_name : session.user.email.split('@')[0];
@@ -1627,7 +1637,10 @@ function Root() {
                 if (session.user.email === ADMIN_EMAIL) {
                     setScreen('admin');
                 } else {
-                    sb.from('visitor_presence').upsert({ user_id: session.user.id, last_seen: new Date().toISOString() }, { onConflict: 'user_id' });
+                    const pingPresence = (uid) => sb.from('visitor_presence').upsert({ user_id: uid, last_seen: new Date().toISOString() }, { onConflict: 'user_id' });
+                    pingPresence(session.user.id);
+                    if (window._presenceInterval) clearInterval(window._presenceInterval);
+                    window._presenceInterval = setInterval(() => pingPresence(session.user.id), 2 * 60 * 1000);
                     setScreen('app');
                 }
             } else {
@@ -1645,12 +1658,15 @@ function Root() {
         if (email === ADMIN_EMAIL) {
             setScreen('admin');
         } else {
-            // Record visitor presence
-            sb.from('visitor_presence').upsert({ user_id: id, last_seen: new Date().toISOString() }, { onConflict: 'user_id' });
+            // Record visitor presence and keep pinging every 2 minutes
+            const pingPresence = (uid) => sb.from('visitor_presence').upsert({ user_id: uid, last_seen: new Date().toISOString() }, { onConflict: 'user_id' });
+            pingPresence(id);
+            if (window._presenceInterval) clearInterval(window._presenceInterval);
+            window._presenceInterval = setInterval(() => pingPresence(id), 2 * 60 * 1000);
             setScreen('app');
         }
     };
-    const handleLogout = async () => { await sb.auth.signOut(); setCurrentUser(null); setScreen('login'); };
+    const handleLogout = async () => { if (window._presenceInterval) clearInterval(window._presenceInterval); await sb.auth.signOut(); setCurrentUser(null); setScreen('login'); };
 
     if (screen==='loading') return e('div',{style:{display:'flex',alignItems:'center',justifyContent:'center',height:'100vh',color:'#ccc',fontSize:18}},'Loading...');
     if (screen==='login') return e(LoginScreen, { onLogin: handleLogin, onGoSignup: ()=>setScreen('signup') });
