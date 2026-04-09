@@ -673,12 +673,13 @@ function App({ currentUser, onLogout }) {
             )
         ),
 
-        // ── User bar ──────────────────────────────────────────────────────────────
-        currentUser && e('div',{style:{display:'flex',alignItems:'center',justifyContent:'center',gap:10,marginTop:16,flexWrap:'wrap'}},
-            e('span',{style:{color:'rgba(255,255,255,0.5)',fontSize:13}},'Signed in as '),
-            e('span',{style:{color:'white',fontWeight:700,fontSize:13}}, currentUser.displayName),
-            e('button',{onClick:()=>setShowSaved(true),style:{background:'rgba(7,244,158,0.12)',border:'1px solid rgba(7,244,158,0.3)',color:'#07f49e',borderRadius:8,padding:'5px 14px',cursor:'pointer',fontSize:12,fontWeight:700,fontFamily:'DM Sans,sans-serif'}},'My Saved Work'),
-            e('button',{onClick:onLogout,style:{background:'rgba(255,255,255,0.08)',border:'1px solid rgba(255,255,255,0.15)',color:'rgba(255,255,255,0.6)',borderRadius:8,padding:'5px 14px',cursor:'pointer',fontSize:12,fontFamily:'DM Sans,sans-serif'}},'Sign Out')
+        // ── Top-right user bar ────────────────────────────────────────────────────
+        currentUser && e('div',{style:{position:'fixed',top:16,right:20,display:'flex',alignItems:'center',gap:8,zIndex:999,background:'rgba(15,15,26,0.85)',backdropFilter:'blur(12px)',border:'1px solid rgba(255,255,255,0.12)',borderRadius:12,padding:'8px 14px',boxShadow:'0 4px 20px rgba(0,0,0,0.4)'}},
+            e('span',{style:{color:'rgba(255,255,255,0.5)',fontSize:12}},'Signed in as'),
+            e('span',{style:{color:'white',fontWeight:700,fontSize:12}}, currentUser.displayName),
+            e('div',{style:{width:1,height:16,background:'rgba(255,255,255,0.15)',margin:'0 2px'}}),
+            e('button',{onClick:()=>setShowSaved(true),style:{background:'rgba(7,244,158,0.12)',border:'1px solid rgba(7,244,158,0.25)',color:'#07f49e',borderRadius:7,padding:'4px 10px',cursor:'pointer',fontSize:11,fontWeight:700,fontFamily:'DM Sans,sans-serif'}},'My Work'),
+            e('button',{onClick:onLogout,style:{background:'none',border:'none',color:'rgba(255,255,255,0.45)',cursor:'pointer',fontSize:11,fontFamily:'DM Sans,sans-serif',padding:'4px 6px'}},'Sign Out')
         ),
 
         // ── INPUT SECTION ─────────────────────────────────────────────────────
@@ -1247,6 +1248,7 @@ function FeedbackSection() {
 const SUPABASE_URL = 'https://lojtpxntzggdcskfvkcr.supabase.co';
 const SUPABASE_KEY = 'sb_publishable_umTxhscSsyJXNmN1cgODVg_tOjc_wEK';
 const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+const ADMIN_EMAIL = 'admin@teachersdesk.app';
 
 // ── Shared input style helper ─────────────────────────────────────────────────
 const authInp = (placeholder, value, onChange, type, onKey) =>
@@ -1434,6 +1436,132 @@ function SavedWorkPanel({ userId, onLoad, onClose }) {
     );
 }
 
+
+// ── Admin Dashboard ───────────────────────────────────────────────────────────
+function AdminDashboard({ onLogout }) {
+    const [stats, setStats] = useState({ total: 0, current: 0 });
+    const [comments, setComments] = useState([]);
+    const [loadingComments, setLoadingComments] = useState(true);
+    const [tab, setTab] = useState('overview');
+
+    const fetchStats = async () => {
+        // Total unique visitors (all presence pings ever)
+        const { count: total } = await sb.from('visitor_presence').select('*', { count: 'exact', head: true });
+        // Current: active in last 5 minutes
+        const fiveMinsAgo = new Date(Date.now() - 5 * 60 * 1000).toISOString();
+        const { count: current } = await sb.from('visitor_presence').select('*', { count: 'exact', head: true }).gte('last_seen', fiveMinsAgo);
+        setStats({ total: total || 0, current: current || 0 });
+    };
+
+    const fetchComments = async () => {
+        setLoadingComments(true);
+        const { data } = await sb.from('feedback_comments').select('*').order('created_at', { ascending: false });
+        setComments(data || []);
+        setLoadingComments(false);
+    };
+
+    React.useEffect(() => {
+        fetchStats();
+        fetchComments();
+        const interval = setInterval(fetchStats, 30000);
+        return () => clearInterval(interval);
+    }, []);
+
+    const StatCard = (icon, label, value, color) => e('div',{style:{background:'rgba(255,255,255,0.06)',border:'1px solid rgba(255,255,255,0.12)',borderRadius:16,padding:'24px 28px',flex:1,minWidth:160}},
+        e('div',{style:{fontSize:32,marginBottom:8}}, icon),
+        e('div',{style:{fontSize:36,fontWeight:800,color,fontFamily:'Sora,sans-serif',lineHeight:1}}, value),
+        e('div',{style:{fontSize:13,color:'rgba(255,255,255,0.5)',marginTop:6,fontWeight:600}}, label)
+    );
+
+    const ratingEmoji = {love:'❤️', good:'👍', okay:'😐', bad:'👎'};
+
+    return e('div',{style:{minHeight:'100vh',padding:'0 0 60px'}},
+        // Top bar
+        e('div',{style:{position:'fixed',top:0,left:0,right:0,background:'rgba(15,15,26,0.95)',backdropFilter:'blur(12px)',borderBottom:'1px solid rgba(255,255,255,0.1)',zIndex:999,padding:'14px 28px',display:'flex',alignItems:'center',justifyContent:'space-between'}},
+            e('div',{style:{display:'flex',alignItems:'center',gap:12}},
+                e('div',{style:{width:36,height:36,borderRadius:10,background:'linear-gradient(135deg,#42047e,#07f49e)',display:'flex',alignItems:'center',justifyContent:'center',fontSize:18}},'🛡️'),
+                e('div',null,
+                    e('div',{style:{fontFamily:'Sora,sans-serif',fontWeight:800,color:'white',fontSize:15}},"The Teacher's Desk"),
+                    e('div',{style:{fontSize:11,color:'#07f49e',fontWeight:700,textTransform:'uppercase',letterSpacing:'0.06em'}},'Admin Dashboard')
+                )
+            ),
+            e('button',{onClick:onLogout,style:{background:'rgba(255,255,255,0.08)',border:'1px solid rgba(255,255,255,0.15)',color:'rgba(255,255,255,0.6)',borderRadius:8,padding:'7px 16px',cursor:'pointer',fontSize:13,fontFamily:'DM Sans,sans-serif'}},'Sign Out')
+        ),
+
+        // Content
+        e('div',{style:{maxWidth:900,margin:'0 auto',padding:'100px 24px 0'}},
+
+            e('h1',{style:{fontFamily:'Sora,sans-serif',color:'white',fontSize:26,fontWeight:800,marginBottom:8}},'Admin Dashboard'),
+            e('p',{style:{color:'rgba(255,255,255,0.4)',fontSize:13,marginBottom:32}},'Live data from your Supabase database.'),
+
+            // Stat cards
+            e('div',{style:{display:'flex',gap:16,marginBottom:40,flexWrap:'wrap'}},
+                StatCard('👥', 'Total Visitors', stats.total, '#07f49e'),
+                StatCard('🟢', 'Active Now (5 min)', stats.current, '#a78bfa'),
+                StatCard('💬', 'Total Comments', comments.length, '#60a5fa')
+            ),
+
+            // Tabs
+            e('div',{style:{display:'flex',gap:6,marginBottom:24,background:'rgba(255,255,255,0.05)',borderRadius:10,padding:5,border:'1px solid rgba(255,255,255,0.1)',width:'fit-content'}},
+                ['overview','comments'].map(t =>
+                    e('button',{key:t,onClick:()=>setTab(t),style:{padding:'7px 18px',borderRadius:8,border:'none',background:tab===t?'#42047e':'transparent',color:tab===t?'white':'rgba(255,255,255,0.5)',fontWeight:700,fontSize:13,cursor:'pointer',fontFamily:'DM Sans,sans-serif',transition:'all 0.15s',textTransform:'capitalize'}},
+                        t==='overview' ? '📊 Overview' : '💬 Comments'
+                    )
+                )
+            ),
+
+            // Overview tab
+            tab==='overview' && e('div',{style:{background:'rgba(255,255,255,0.04)',border:'1px solid rgba(255,255,255,0.1)',borderRadius:16,padding:28}},
+                e('h3',{style:{fontFamily:'Sora,sans-serif',color:'white',margin:'0 0 20px',fontSize:16,fontWeight:800}},'Visitor Stats'),
+                e('div',{style:{display:'grid',gridTemplateColumns:'1fr 1fr',gap:16}},
+                    e('div',{style:{background:'rgba(7,244,158,0.07)',border:'1px solid rgba(7,244,158,0.2)',borderRadius:12,padding:20}},
+                        e('div',{style:{fontSize:12,fontWeight:700,color:'rgba(255,255,255,0.5)',textTransform:'uppercase',letterSpacing:'0.05em',marginBottom:8}},'Total Unique Visitors'),
+                        e('div',{style:{fontSize:48,fontWeight:800,color:'#07f49e',fontFamily:'Sora,sans-serif'}},stats.total),
+                        e('div',{style:{fontSize:12,color:'rgba(255,255,255,0.4)',marginTop:4}},'All time')
+                    ),
+                    e('div',{style:{background:'rgba(167,139,250,0.07)',border:'1px solid rgba(167,139,250,0.2)',borderRadius:12,padding:20}},
+                        e('div',{style:{fontSize:12,fontWeight:700,color:'rgba(255,255,255,0.5)',textTransform:'uppercase',letterSpacing:'0.05em',marginBottom:8}},'Currently Active'),
+                        e('div',{style:{fontSize:48,fontWeight:800,color:'#a78bfa',fontFamily:'Sora,sans-serif'}},stats.current),
+                        e('div',{style:{fontSize:12,color:'rgba(255,255,255,0.4)',marginTop:4}},'Last 5 minutes'),
+                    )
+                ),
+                e('button',{onClick:fetchStats,style:{marginTop:20,background:'rgba(255,255,255,0.06)',border:'1px solid rgba(255,255,255,0.12)',color:'rgba(255,255,255,0.6)',borderRadius:8,padding:'8px 16px',cursor:'pointer',fontSize:12,fontFamily:'DM Sans,sans-serif'}},'Refresh Stats')
+            ),
+
+            // Comments tab
+            tab==='comments' && e('div',null,
+                loadingComments
+                    ? e('div',{style:{textAlign:'center',padding:'60px 0',color:'rgba(255,255,255,0.4)'}}, 'Loading comments...')
+                    : comments.length===0
+                        ? e('div',{style:{textAlign:'center',padding:'60px 0',background:'rgba(255,255,255,0.04)',border:'1px solid rgba(255,255,255,0.1)',borderRadius:16}},
+                            e('div',{style:{fontSize:40,marginBottom:12}},'💭'),
+                            e('p',{style:{color:'rgba(255,255,255,0.4)',fontSize:14,margin:0}},'No comments yet.')
+                          )
+                        : e('div',{style:{display:'flex',flexDirection:'column',gap:12}},
+                            ...comments.map((cm,i) => {
+                                const emoji = ratingEmoji[cm.rating] || '💬';
+                                return e('div',{key:i,style:{background:'rgba(255,255,255,0.05)',border:'1px solid rgba(255,255,255,0.1)',borderRadius:14,padding:'16px 20px'}},
+                                    e('div',{style:{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:cm.message?10:0}},
+                                        e('div',{style:{display:'flex',alignItems:'center',gap:10}},
+                                            e('span',{style:{fontSize:22}}, emoji),
+                                            e('div',null,
+                                                e('div',{style:{fontWeight:700,color:'white',fontSize:14}}, cm.name || 'Anonymous'),
+                                                e('div',{style:{fontSize:11,color:'rgba(255,255,255,0.35)',marginTop:2}}, new Date(cm.created_at).toLocaleString())
+                                            )
+                                        ),
+                                        e('span',{style:{fontSize:11,fontWeight:700,color:'#07f49e',background:'rgba(7,244,158,0.1)',padding:'3px 10px',borderRadius:999,textTransform:'capitalize'}}, cm.rating)
+                                    ),
+                                    cm.message && e('p',{style:{fontSize:13,color:'rgba(255,255,255,0.65)',margin:0,lineHeight:1.6,paddingLeft:32,fontStyle:'italic'}},
+                                        '"', cm.message, '"'
+                                    )
+                                );
+                            })
+                          )
+            )
+        )
+    );
+}
+
 // ── Auth Gate ─────────────────────────────────────────────────────────────────
 function Root() {
     const [screen, setScreen] = useState('loading');
@@ -1444,7 +1572,12 @@ function Root() {
             if (session) {
                 const displayName = (session.user.user_metadata && session.user.user_metadata.display_name) ? session.user.user_metadata.display_name : session.user.email.split('@')[0];
                 setCurrentUser({ id: session.user.id, displayName, email: session.user.email });
-                setScreen('app');
+                if (session.user.email === ADMIN_EMAIL) {
+                    setScreen('admin');
+                } else {
+                    sb.from('visitor_presence').upsert({ user_id: session.user.id, last_seen: new Date().toISOString() }, { onConflict: 'user_id' });
+                    setScreen('app');
+                }
             } else {
                 setScreen('login');
             }
@@ -1455,12 +1588,22 @@ function Root() {
         return () => listener.subscription.unsubscribe();
     }, []);
 
-    const handleLogin = (id, displayName, email) => { setCurrentUser({ id, displayName, email }); setScreen('app'); };
+    const handleLogin = (id, displayName, email) => {
+        setCurrentUser({ id, displayName, email });
+        if (email === ADMIN_EMAIL) {
+            setScreen('admin');
+        } else {
+            // Record visitor presence
+            sb.from('visitor_presence').upsert({ user_id: id, last_seen: new Date().toISOString() }, { onConflict: 'user_id' });
+            setScreen('app');
+        }
+    };
     const handleLogout = async () => { await sb.auth.signOut(); setCurrentUser(null); setScreen('login'); };
 
     if (screen==='loading') return e('div',{style:{display:'flex',alignItems:'center',justifyContent:'center',height:'100vh',color:'#ccc',fontSize:18}},'Loading...');
     if (screen==='login') return e(LoginScreen, { onLogin: handleLogin, onGoSignup: ()=>setScreen('signup') });
     if (screen==='signup') return e(SignupScreen, { onGoLogin: ()=>setScreen('login'), onSignedUp: handleLogin });
+    if (screen==='admin') return e(AdminDashboard, { onLogout: handleLogout });
     return e(App, { currentUser, onLogout: handleLogout });
 }
 
