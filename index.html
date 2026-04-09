@@ -1390,6 +1390,7 @@ function SignupScreen({ onGoLogin, onSignedUp }) {
 function SavedWorkPanel({ userId, onLoad, onClose }) {
     const [items, setItems] = useState([]);
     const [confirmDel, setConfirmDel] = useState(null);
+    const [errors, setErrors] = useState({});
     const [loadingItems, setLoadingItems] = useState(true);
 
     React.useEffect(() => {
@@ -1453,20 +1454,26 @@ function AdminDashboard({ onLogout }) {
     const [comments, setComments] = useState([]);
     const [loadingComments, setLoadingComments] = useState(true);
     const [confirmDel, setConfirmDel] = useState(null);
+    const [errors, setErrors] = useState({});
     const [tab, setTab] = useState('overview');
 
     const fetchStats = async () => {
-        // Total unique visitors (all presence pings ever)
-        const { count: total } = await sb.from('visitor_presence').select('*', { count: 'exact', head: true });
+        const errs = {};
+        // Total visitors
+        const { count: total, error: e1 } = await sb.from('visitor_presence').select('*', { count: 'exact', head: true });
+        if (e1) errs.total = e1.message;
         // Current: active in last 5 minutes
         const fiveMinsAgo = new Date(Date.now() - 5 * 60 * 1000).toISOString();
-        const { count: current } = await sb.from('visitor_presence').select('*', { count: 'exact', head: true }).gte('last_seen', fiveMinsAgo);
+        const { count: current, error: e2 } = await sb.from('visitor_presence').select('*', { count: 'exact', head: true }).gte('last_seen', fiveMinsAgo);
+        if (e2) errs.current = e2.message;
         setStats({ total: total || 0, current: current || 0 });
+        setErrors(prev => ({...prev, ...errs}));
     };
 
     const fetchComments = async () => {
         setLoadingComments(true);
-        const { data } = await sb.from('feedback_comments').select('*').order('created_at', { ascending: false });
+        const { data, error: e3 } = await sb.from('feedback_comments').select('*').order('created_at', { ascending: false });
+        if (e3) setErrors(prev => ({...prev, comments: e3.message}));
         setComments(data || []);
         setLoadingComments(false);
     };
@@ -1536,7 +1543,20 @@ function AdminDashboard({ onLogout }) {
                         e('div',{style:{fontSize:12,color:'rgba(255,255,255,0.4)',marginTop:4}},'Last 5 minutes'),
                     )
                 ),
-                e('button',{onClick:fetchStats,style:{marginTop:20,background:'rgba(255,255,255,0.06)',border:'1px solid rgba(255,255,255,0.12)',color:'rgba(255,255,255,0.6)',borderRadius:8,padding:'8px 16px',cursor:'pointer',fontSize:12,fontFamily:'DM Sans,sans-serif'}},'Refresh Stats')
+                e('button',{onClick:fetchStats,style:{marginTop:20,background:'rgba(255,255,255,0.06)',border:'1px solid rgba(255,255,255,0.12)',color:'rgba(255,255,255,0.6)',borderRadius:8,padding:'8px 16px',cursor:'pointer',fontSize:12,fontFamily:'DM Sans,sans-serif'}},'Refresh Stats'),
+
+                // Error / debug panel
+                Object.keys(errors).length > 0 && e('div',{style:{marginTop:16,background:'rgba(239,68,68,0.1)',border:'1px solid rgba(239,68,68,0.3)',borderRadius:10,padding:'14px 16px'}},
+                    e('div',{style:{fontWeight:700,color:'#fca5a5',fontSize:13,marginBottom:8}},'Supabase errors detected — check your table setup:'),
+                    ...Object.entries(errors).map(([k,v]) =>
+                        e('div',{key:k,style:{fontSize:12,color:'#fca5a5',marginBottom:4}}, k+': '+v)
+                    ),
+                    e('div',{style:{fontSize:11,color:'rgba(255,255,255,0.4)',marginTop:10,lineHeight:1.6}},
+                        '1. Make sure both tables exist in Supabase (visitor_presence, feedback_comments)', e('br'),
+                        '2. Make sure Row Level Security (RLS) is turned OFF on both tables', e('br'),
+                        '3. Make sure the feedback_comments table has an id column (type: int8, identity)'
+                    )
+                )
             ),
 
             // Comments tab
